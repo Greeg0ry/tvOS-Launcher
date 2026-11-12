@@ -274,26 +274,14 @@ public class MainActivity extends Activity {
         dockPadV = dp(19);
 
         Clicks.init(this);
-        // Startup: the app list (package manager, banners, icon colours) and the wallpaper are
-        // prepared in the background while the window's views are built (~250 ms saved on 1 GHz TVs).
-        java.util.concurrent.Future<?> appsTask = io.submit(this::loadApps);
-        if (!Scenes.isScenesLook(this)) {
-            String wall = prefs.getString("wallpaper", "photo:tessellated-pavement.jpg");
-            wallPrefetch = new java.util.concurrent.FutureTask<>(() -> makeWallpaper(wall));
-            wallPrefetchStyle = wall;
-            new Thread((Runnable) wallPrefetch, "tvos-wallpaper").start();
-        }
+        // Show the shell while package-manager queries and artwork decoding run in the background.
+        loadInitialCatalog();
         // After an update that changes what the top shelf holds, start from a fresh carousel.
         if (Suggestions.prefs(this).getInt("cache_format", 0) != 3) {
             Suggestions.changed(this);
             Suggestions.prefs(this).edit().putInt("cache_format", 3).apply();
         }
         buildChrome();
-        try {
-            appsTask.get();
-        } catch (Exception e) {
-            loadApps();
-        }
         buildGrid();
         applyLookMode();
         registerPackageReceiver();
@@ -555,12 +543,12 @@ public class MainActivity extends Activity {
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
+        CustomMedia.trimMemory(level);
+        SettingsActivity.trimThumbnailMemory(level);
         if (level >= TRIM_MEMORY_UI_HIDDEN) {
             if (Scenes.isScenesLook(this)) {
                 if (wallView != null && wallView.getDrawable() instanceof BitmapDrawable) {
-                    Bitmap wb = ((BitmapDrawable) wallView.getDrawable()).getBitmap();
                     wallView.setImageDrawable(null);
-                    if (wb != null && !wb.isRecycled()) wb.recycle();
                 }
             } else if (sceneHome != null) {
                 sceneHome.sceneView.releaseCache();
@@ -574,6 +562,10 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        catalogGeneration++;
+        wallpaperLoader.cancel();
+        if (activeInstance == this) activeInstance = null;
+        if (sceneHome != null) sceneHome.sceneView.releaseCache();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
         if (netCallback != null) {
             try {
@@ -964,12 +956,9 @@ public class MainActivity extends Activity {
         }
         if (scenes) {
             if (wallView.getDrawable() instanceof BitmapDrawable) {
-                Bitmap wb = ((BitmapDrawable) wallView.getDrawable()).getBitmap();
                 wallView.setImageDrawable(null);
-                if (wb != null && !wb.isRecycled()) wb.recycle();
             }
             if (wallBlur != null && !wallBlur.isRecycled()) {
-                wallBlur.recycle();
                 wallBlur = null;
             }
         } else if (wallView.getDrawable() == null) {
@@ -985,8 +974,6 @@ public class MainActivity extends Activity {
         clockBox.setVisibility(scenes ? View.GONE : View.VISIBLE);
         syncClassicClockAndWeatherUi();
         if (scenes && sceneHome != null) {
-            Bitmap bg = sceneHome.sceneView.getCurrentBgBitmap();
-            if (bg != null) glassBg = Ui.glassBackdrop(bg, 192, 108);
             sceneHome.focusDock(sceneHome.focusedDockIdx);
         } else {
             focusIndex(focusedIndex);
@@ -1156,32 +1143,34 @@ public class MainActivity extends Activity {
     }
 
     /** tvOS-style ambient colour field: soft glows of indigo, teal, magenta and amber on navy. */
-    java.util.concurrent.FutureTask<Bitmap> wallPrefetch;
-    String wallPrefetchStyle;
+    private static final java.util.concurrent.ExecutorService WALLPAPER_IO =
+            java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
+                Thread thread = new Thread(task, "wallpaper-decode"); thread.setDaemon(true); return thread;
+            });
+    private static final class Wallpaper {
+        final Bitmap image, blur;
+        Wallpaper(Bitmap image, Bitmap blur) { this.image = image; this.blur = blur; }
+        void discard() {
+            if (image != null && !image.isRecycled()) image.recycle();
+            if (blur != null && !blur.isRecycled()) blur.recycle();
+        }
+    }
+    private final LatestTask<Wallpaper> wallpaperLoader =
+            new LatestTask<>(WALLPAPER_IO, task -> handler.post(task), Wallpaper::discard);
 
     void setWallpaper(String style) {
-        Bitmap wp = null;
-        if (wallPrefetch != null && style.equals(wallPrefetchStyle)) {
-            try {
-                wp = wallPrefetch.get();
-            } catch (Exception ignored) {
-                // generate below
-            }
-        }
-        wallPrefetch = null;
-        if (wp == null) wp = makeWallpaper(style);
-        Bitmap oldWp = wallView.getDrawable() instanceof BitmapDrawable
-                ? ((BitmapDrawable) wallView.getDrawable()).getBitmap() : null;
-        wallView.setImageBitmap(wp);
-        if (sceneHome != null) {
-            sceneHome.sceneView.setClassicWallpaperBitmap(wp);
-        }
-        if (oldWp != null && oldWp != wp && !oldWp.isRecycled()) oldWp.recycle();
-        Bitmap oldBlur = wallBlur;
-        wallBlur = Ui.glassBackdrop(wp, 192, 108);
-        if (!heroShown || heroBlur == null) glassBg = wallBlur;
-        if (oldBlur != null && oldBlur != wallBlur && !oldBlur.isRecycled()) oldBlur.recycle();
-        invalidateGlass();
+        wallpaperLoader.submit(() -> {
+            Bitmap image = makeWallpaper(style);
+            return new Wallpaper(image, Ui.glassBackdrop(image, 192, 108));
+        }, wallpaper -> {
+            if (wallpaper == null) return;
+            if (isDestroyed() || Scenes.isScenesLook(this)) { wallpaper.discard(); return; }
+            wallView.setImageBitmap(wallpaper.image);
+            if (sceneHome != null) sceneHome.sceneView.setClassicWallpaperBitmap(wallpaper.image);
+            wallBlur = wallpaper.blur;
+            if (!heroShown || heroBlur == null) glassBg = wallBlur;
+            invalidateGlass();
+        });
     }
 
     void invalidateGlass() {
@@ -1227,7 +1216,6 @@ public class MainActivity extends Activity {
                 Bitmap rb = CustomMedia.getRedditWallpaperBitmap(this, CustomMedia.SCOPE_CLASSIC, 1920, 1080);
                 if (rb != null && !rb.isRecycled()) {
                     Bitmap copy = rb.copy(Bitmap.Config.ARGB_8888, true);
-                    if (copy != rb) rb.recycle();
                     return bakeShade(copy);
                 } else {
                     CustomMedia.fetchNextRedditWallpaperAsync(this, CustomMedia.SCOPE_CLASSIC, () -> {
@@ -1238,7 +1226,6 @@ public class MainActivity extends Activity {
                 Bitmap folderBmp = CustomMedia.getNextShuffledFolderBitmap(this, CustomMedia.SCOPE_CLASSIC, 1920, 1080, true);
                 if (folderBmp != null && !folderBmp.isRecycled()) {
                     Bitmap copy = folderBmp.copy(Bitmap.Config.ARGB_8888, true);
-                    if (copy != folderBmp) folderBmp.recycle();
                     return bakeShade(copy);
                 }
             } else {
@@ -1253,7 +1240,6 @@ public class MainActivity extends Activity {
             Bitmap folderBmp = CustomMedia.getNextShuffledFolderBitmap(this, CustomMedia.SCOPE_CLASSIC, 1920, 1080, true);
             if (folderBmp != null && !folderBmp.isRecycled()) {
                 Bitmap copy = folderBmp.copy(Bitmap.Config.ARGB_8888, true);
-                if (copy != folderBmp) folderBmp.recycle();
                 return bakeShade(copy);
             }
         }
@@ -3710,20 +3696,56 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- apps
 
+    private static final class AppCatalog {
+        final Map<String, AppEntry> all = new LinkedHashMap<>();
+        final List<AppEntry> apps = new ArrayList<>(), other = new ArrayList<>(), hidden = new ArrayList<>();
+        List<Inputs.Input> inputs;
+    }
+    private long catalogGeneration;
+
+    private void applyAppCatalog(AppCatalog catalog) {
+        all.clear(); all.putAll(catalog.all);
+        apps.clear(); apps.addAll(catalog.apps);
+        otherApps.clear(); otherApps.addAll(catalog.other);
+        hiddenApps.clear(); hiddenApps.addAll(catalog.hidden);
+        inputs = catalog.inputs;
+    }
+
+    /** Publish the list after the first frame; workers never mutate UI-owned collections. */
+    private void loadInitialCatalog() {
+        final long generation = ++catalogGeneration;
+        final SharedPreferences home = prefs;
+        io.execute(() -> {
+            AppCatalog catalog = readAppCatalog(home);
+            handler.post(() -> {
+                if (isDestroyed() || generation != catalogGeneration || prefs != home) return;
+                applyAppCatalog(catalog);
+                buildGrid();
+                if (sceneHome != null) sceneHome.rebuildDock();
+                applyLookMode();
+            });
+        });
+    }
+
     void loadApps() {
-        all.clear();
-        apps.clear();
-        otherApps.clear();
-        hiddenApps.clear();
+        catalogGeneration++;
+        applyAppCatalog(readAppCatalog(prefs));
+    }
+
+    private AppCatalog readAppCatalog(SharedPreferences home) {
+        AppCatalog catalog = new AppCatalog();
+        Map<String, AppEntry> all = catalog.all;
+        List<AppEntry> apps = catalog.apps, otherApps = catalog.other, hiddenApps = catalog.hidden;
         PackageManager pm = getPackageManager();
         Set<String> pkgs = new HashSet<>();
-        addResolved(pm, Intent.CATEGORY_LEANBACK_LAUNCHER, pkgs, true);
-        addResolved(pm, Intent.CATEGORY_LAUNCHER, pkgs, false);
-        if (!pkgs.contains(TV_SETTINGS)) addSettingsEntry(pm);
-        if (com.techgenius.tvoslauncher.present.Presenter.enabled(this)) addPresentEntry();
-        inputs = Inputs.list(this);
+        addResolved(pm, Intent.CATEGORY_LEANBACK_LAUNCHER, pkgs, true, all);
+        addResolved(pm, Intent.CATEGORY_LAUNCHER, pkgs, false, all);
+        if (!pkgs.contains(TV_SETTINGS)) addSettingsEntry(pm, all);
+        if (com.techgenius.tvoslauncher.present.Presenter.enabled(this)) addPresentEntry(all);
+        List<Inputs.Input> inputs = Inputs.list(this);
+        catalog.inputs = inputs;
         if (Inputs.showCard(this) && (!inputs.isEmpty() || ControlPanelOverlay.hasCustomAction(this, ControlPanelOverlay.ACTION_INPUTS))) {
-            addInputsEntry();
+            addInputsEntry(all);
         }
         for (AppEntry e : all.values()) {
             if (CustomMedia.hasCustomAppIcon(this, e.key, e.pkg)) {
@@ -3739,8 +3761,8 @@ public class MainActivity extends Activity {
             }
         }
 
-        Set<String> hidden = prefs.getStringSet(PREF_HIDDEN, Collections.emptySet());
-        Set<String> other = prefs.getStringSet(PREF_OTHER, Collections.emptySet());
+        Set<String> hidden = home.getStringSet(PREF_HIDDEN, Collections.emptySet());
+        Set<String> other = home.getStringSet(PREF_OTHER, Collections.emptySet());
         Map<String, AppEntry> pool = new LinkedHashMap<>();
         for (AppEntry e : all.values()) {
             if (hidden.contains(e.key) || (e.pkg != null && hidden.contains(e.pkg))) {
@@ -3754,7 +3776,7 @@ public class MainActivity extends Activity {
         Collections.sort(hiddenApps, (x, y) -> x.label.compareToIgnoreCase(y.label));
         Collections.sort(otherApps, (x, y) -> x.label.compareToIgnoreCase(y.label));
 
-        for (String key : prefs.getString(PREF_ORDER, "").split(",")) {
+        for (String key : home.getString(PREF_ORDER, "").split(",")) {
             AppEntry e = pool.remove(key);
             if (e != null) apps.add(e);
         }
@@ -3765,7 +3787,7 @@ public class MainActivity extends Activity {
         });
         apps.addAll(rest);
         // Inputs starts as the first card in the dock until it is moved.
-        if (!Arrays.asList(prefs.getString(PREF_ORDER, "").split(",")).contains(INPUTS_KEY)) {
+        if (!Arrays.asList(home.getString(PREF_ORDER, "").split(",")).contains(INPUTS_KEY)) {
             for (int i = 0; i < apps.size(); i++) {
                 if (INPUTS_KEY.equals(apps.get(i).key)) {
                     apps.add(0, apps.remove(i));
@@ -3773,10 +3795,11 @@ public class MainActivity extends Activity {
                 }
             }
         }
+        return catalog;
     }
 
     /** Fallback Settings tile for TVs whose settings app has no launcher entry. */
-    void addSettingsEntry(PackageManager pm) {
+    void addSettingsEntry(PackageManager pm, Map<String, AppEntry> all) {
         AppEntry s = new AppEntry();
         s.key = SETTINGS_KEY;
         s.pkg = TV_SETTINGS;
@@ -3809,7 +3832,7 @@ public class MainActivity extends Activity {
     List<Inputs.Input> inputs = new ArrayList<>();
 
     /** Inputs card: a graphite tvOS-style card with the input glyph; OK opens the input picker. */
-    void addInputsEntry() {
+    void addInputsEntry(Map<String, AppEntry> all) {
         AppEntry e = new AppEntry();
         e.key = INPUTS_KEY;
         e.pkg = getPackageName();
@@ -3831,7 +3854,7 @@ public class MainActivity extends Activity {
     }
 
     /** Presentation tile (shown while Presentation mode is on): tvOS-style card. */
-    void addPresentEntry() {
+    void addPresentEntry(Map<String, AppEntry> all) {
         AppEntry e = new AppEntry();
         e.key = PRESENT_KEY;
         e.pkg = getPackageName();
@@ -3847,7 +3870,7 @@ public class MainActivity extends Activity {
         all.put(e.key, e);
     }
 
-    void addResolved(PackageManager pm, String category, Set<String> pkgs, boolean leanback) {
+    void addResolved(PackageManager pm, String category, Set<String> pkgs, boolean leanback, Map<String, AppEntry> all) {
         Intent q = new Intent(Intent.ACTION_MAIN).addCategory(category);
         for (ResolveInfo ri : pm.queryIntentActivities(q, 0)) {
             ActivityInfo ai = ri.activityInfo;

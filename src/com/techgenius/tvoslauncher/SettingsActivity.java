@@ -94,7 +94,8 @@ public class SettingsActivity extends Activity {
     private TextView hintView;
 
     private final List<Runnable> refreshers = new ArrayList<>();
-    private static final Map<String, Bitmap> SCENE_THUMB_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final WeightedLruCache<String, Bitmap> SCENE_THUMB_CACHE =
+            new WeightedLruCache<>(4L << 20, bitmap -> bitmap.getAllocationByteCount());
     private static final java.util.concurrent.ExecutorService THUMB_EXEC =
             java.util.concurrent.Executors.newFixedThreadPool(2);
     private static volatile Bitmap sCachedBackdropBmp = null;
@@ -415,13 +416,14 @@ public class SettingsActivity extends Activity {
     private static Bitmap buildSettingsBackdropStatic(android.content.Context ctx, String sceneId) {
         try {
             Scenes.Spec spec = Scenes.byId(sceneId);
-            Bitmap src = Scenes.CUSTOM_ID.equals(sceneId)
-                    ? CustomMedia.getCustomSceneWallpaper(ctx, 480, 270)
+            int slot = Scenes.customSlotFromId(sceneId);
+            Bitmap src = slot > 0 ? CustomMedia.getCustomSceneWallpaper(ctx, slot, 480, 270)
                     : Scenes.loadAssetBitmap(ctx, spec.bgAsset, 480, 270);
             if (src == null) return null;
             int w = 240, h = 135;
             Bitmap base = Bitmap.createScaledBitmap(src, w, h, true);
-            if (base != src) src.recycle();
+            if (base == src && slot > 0) base = src.copy(Bitmap.Config.ARGB_8888, true);
+            if (base != src && slot == 0) src.recycle();
             Canvas c = new Canvas(base);
             Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
             // Subtle dock-like color dots along the bottom before blurring, as seen in home-settings.jpg
@@ -447,6 +449,23 @@ public class SettingsActivity extends Activity {
         return buildSettingsBackdropStatic(this, sceneId);
     }
 
+    static void trimThumbnailMemory(int level) {
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+                || level == android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+            SCENE_THUMB_CACHE.clear();
+            sCachedBackdropBmp = null;
+            sCachedBackdropKey = null;
+        } else if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            SCENE_THUMB_CACHE.trimToSize(1L << 20);
+        }
+    }
+
+    @Override public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        CustomMedia.trimMemory(level);
+        trimThumbnailMemory(level);
+    }
+
     /** Pre-warms the Settings backdrop and scene/background thumbnails in the background so Settings opens in <16ms. */
     public static void prewarmCache(final android.content.Context ctx) {
         if (ctx == null) return;
@@ -467,7 +486,7 @@ public class SettingsActivity extends Activity {
                 for (Scenes.Spec spec : Scenes.ALL) {
                     if (spec.bgAsset == null || spec.bgAsset.isEmpty()) continue;
                     String tk = spec.bgAsset + ":" + reqW + "x" + reqH;
-                    if (!SCENE_THUMB_CACHE.containsKey(tk)) {
+                    if (SCENE_THUMB_CACHE.get(tk) == null) {
                         Bitmap raw = Scenes.loadAssetBitmap(ctx, spec.bgAsset, reqW, reqH);
                         if (raw != null) {
                             Bitmap scaled = Bitmap.createScaledBitmap(raw, reqW, reqH, true);
@@ -479,7 +498,7 @@ public class SettingsActivity extends Activity {
                 for (int i = 0; i < Scenes.CLASSIC_PHOTOS.length; i++) {
                     String assetPath = "backgrounds/" + Scenes.CLASSIC_PHOTOS[i][0];
                     String tk = assetPath + ":" + reqW + "x" + reqH;
-                    if (!SCENE_THUMB_CACHE.containsKey(tk)) {
+                    if (SCENE_THUMB_CACHE.get(tk) == null) {
                         Bitmap raw = Scenes.loadAssetBitmap(ctx, assetPath, reqW, reqH);
                         if (raw != null) {
                             Bitmap scaled = Bitmap.createScaledBitmap(raw, reqW, reqH, true);
@@ -3781,8 +3800,10 @@ public class SettingsActivity extends Activity {
         thumb.setImageBitmap(buildPlaceholderThumb(reqW, reqH));
         THUMB_EXEC.execute(() -> {
             try {
-                Bitmap loaded = loader.call();
-                if (loaded != null) {
+                Bitmap source = loader.call();
+                if (source != null) {
+                    // Loader values may be borrowed from the wallpaper cache.
+                    Bitmap loaded = Bitmap.createScaledBitmap(source, reqW, reqH, true);
                     SCENE_THUMB_CACHE.put(cacheKey, loaded);
                     runOnUiThread(() -> {
                         if (!isFinishing()) thumb.setImageBitmap(loaded);
@@ -4226,7 +4247,6 @@ public class SettingsActivity extends Activity {
                 Bitmap full = CustomMedia.getCustomClassicWallpaper(this);
                 if (full == null) return null;
                 Bitmap scaled = Bitmap.createScaledBitmap(full, tw * 2, th * 2, true);
-                if (scaled != full) full.recycle();
                 return scaled;
             });
         } else {

@@ -133,11 +133,12 @@ final class SceneHome {
                 host.io.execute(() -> {
                     Bitmap blurred = Ui.glassBackdrop(bg, 192, 108);
                     host.handler.post(() -> {
-                        if (blurred != null && Scenes.isScenesLook(host)) {
+                        if (blurred != null && !host.isDestroyed() && Scenes.isScenesLook(host)
+                                && sceneView.getCurrentBgBitmap() == bg) {
                             host.glassBg = blurred;
                             host.invalidateGlass();
                             invalidateSceneGlass();
-                        }
+                        } else if (blurred != null && !blurred.isRecycled()) blurred.recycle();
                     });
                 });
             }

@@ -54,13 +54,46 @@ public final class CustomMedia {
     private static final String KEY_SCENE_WALL_TS = "scene_wall_ts";
     private static final String KEY_CLASSIC_WALL_TS = "classic_wall_ts";
 
-    private static final Map<String, Bitmap> ICON_CACHE = new HashMap<>();
-    private static final Map<Integer, Bitmap> cachedSceneWalls = new HashMap<>();
-    private static final Map<Integer, Long> cachedSceneWallTs = new HashMap<>();
-    private static final Map<Integer, Bitmap> cachedClassicWalls = new HashMap<>();
-    private static final Map<Integer, Long> cachedClassicWallTsMap = new HashMap<>();
-    private static Bitmap cachedClassicWall;
-    private static long cachedClassicWallTs = -1L;
+    private static final long WALL_BUDGET = Math.max(8L << 20,
+            Math.min(24L << 20, Runtime.getRuntime().maxMemory() / 8));
+    private static final WeightedLruCache<String, Bitmap> ICON_CACHE = new WeightedLruCache<>(
+            Math.max(2L << 20, Math.min(8L << 20, Runtime.getRuntime().maxMemory() / 32)),
+            bitmap -> bitmap.getAllocationByteCount());
+    private static final WeightedLruCache<String, CachedBitmap> WALL_CACHE =
+            new WeightedLruCache<>(WALL_BUDGET, entry -> entry.bitmap.getAllocationByteCount());
+
+    private static final class CachedBitmap {
+        final Bitmap bitmap;
+        final long timestamp;
+        CachedBitmap(Bitmap bitmap, long timestamp) { this.bitmap = bitmap; this.timestamp = timestamp; }
+    }
+
+    private static Bitmap cachedWall(String key, long timestamp) {
+        CachedBitmap entry = WALL_CACHE.get(key);
+        if (entry == null || entry.bitmap.isRecycled() || entry.timestamp != timestamp) return null;
+        return entry.bitmap;
+    }
+
+    private static Bitmap cachedWall(String key) {
+        CachedBitmap entry = WALL_CACHE.get(key);
+        return entry == null || entry.bitmap.isRecycled() ? null : entry.bitmap;
+    }
+
+    private static void cacheWall(String key, Bitmap bitmap, long timestamp) {
+        WALL_CACHE.put(key, new CachedBitmap(bitmap, timestamp));
+    }
+
+    /** Drop cache ownership only: views and transitions may still be drawing the image. */
+    public static void trimMemory(int level) {
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+                || level == android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+            WALL_CACHE.clear();
+            ICON_CACHE.clear();
+        } else if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            WALL_CACHE.trimToSize(WALL_BUDGET / 3);
+            ICON_CACHE.trimToSize(1L << 20);
+        }
+    }
 
     public static final int CUSTOM_MODE_SINGLE_MULTI = 0;
     public static final int CUSTOM_MODE_FOLDER_SHUFFLE = 1;
@@ -72,7 +105,6 @@ public final class CustomMedia {
     };
     public static final int[] REDDIT_INTERVAL_MINS = { 1, 5, 15, 30, 60, 180 };
 
-    private static final Map<String, Bitmap> redditBmpMap = new HashMap<>();
     private static final Map<String, Long> redditLastFetchMap = new HashMap<>();
     private static final Map<String, List<String>> redditUrlDeckMap = new HashMap<>();
     private static final Map<String, Integer> redditDeckIdxMap = new HashMap<>();
@@ -92,13 +124,10 @@ public final class CustomMedia {
     public static final String SCOPE_CLASSIC = "classic";
     public static final String SCOPE_LOCK = "lock";
 
-    private static Bitmap cachedLockWall;
-    private static long cachedLockWallTs = -1L;
 
     private static final Map<String, List<File>> folderDeckMap = new HashMap<>();
     private static final Map<String, Integer> folderIndexMap = new HashMap<>();
     private static final Map<String, String> folderPathCacheMap = new HashMap<>();
-    private static final Map<String, Bitmap> folderCurrentBmpMap = new HashMap<>();
     private static final Map<String, String> folderCurrentFileMap = new HashMap<>();
 
     private static final class PendingSystemPick {
@@ -926,10 +955,7 @@ public final class CustomMedia {
             SharedPreferences.Editor ed = prefs(c).edit().putLong(sceneWallTsKey(s), ts);
             if (s > curCount) ed.putInt("custom_slot_count_" + SCOPE_SCENE, s);
             ed.apply();
-            synchronized (cachedSceneWalls) {
-                cachedSceneWalls.put(s, cropped);
-                cachedSceneWallTs.put(s, ts);
-            }
+            cacheWall("scene:" + s, cropped, ts);
             return true;
         } catch (Throwable t) {
             return false;
@@ -962,21 +988,7 @@ public final class CustomMedia {
         if (c == null || slot < 1) return;
         File f = SCOPE_SCENE.equals(scope) ? sceneWallFile(c, slot) : classicWallFile(c, slot);
         if (f.exists()) f.delete();
-        if (SCOPE_SCENE.equals(scope)) {
-            synchronized (cachedSceneWalls) {
-                cachedSceneWalls.remove(slot);
-                cachedSceneWallTs.remove(slot);
-            }
-        } else {
-            synchronized (cachedClassicWalls) {
-                cachedClassicWalls.remove(slot);
-                cachedClassicWallTsMap.remove(slot);
-            }
-            if (slot == 1) {
-                cachedClassicWall = null;
-                cachedClassicWallTs = -1L;
-            }
-        }
+        WALL_CACHE.remove((SCOPE_SCENE.equals(scope) ? "scene:" : "classic:") + slot);
         // Recalculate highest existing slot
         int count = getCustomSlotCount(c, scope);
         int highest = 0;
@@ -1008,22 +1020,14 @@ public final class CustomMedia {
         if (c == null) return null;
         int s = Math.max(1, slot);
         long ts = getCustomSceneTimestamp(c, s);
-        synchronized (cachedSceneWalls) {
-            Bitmap cached = cachedSceneWalls.get(s);
-            Long cTs = cachedSceneWallTs.get(s);
-            if (cached != null && !cached.isRecycled() && cTs != null && cTs == ts) {
-                return cached;
-            }
-        }
+        Bitmap cached = cachedWall("scene:" + s, ts);
+        if (cached != null) return cached;
         File f = sceneWallFile(c, s);
         if (!f.exists() || f.length() == 0) return null;
         try {
             Bitmap b = decodeBitmapFromFile(f, Math.max(1280, reqW), Math.max(720, reqH));
             if (b != null) {
-                synchronized (cachedSceneWalls) {
-                    cachedSceneWalls.put(s, b);
-                    cachedSceneWallTs.put(s, ts);
-                }
+                cacheWall("scene:" + s, b, ts);
             }
             return b;
         } catch (Throwable t) {
@@ -1058,14 +1062,7 @@ public final class CustomMedia {
             SharedPreferences.Editor ed = prefs(c).edit().putLong(classicWallTsKey(s), ts);
             if (s > curCount) ed.putInt("custom_slot_count_" + SCOPE_CLASSIC, s);
             ed.apply();
-            synchronized (cachedClassicWalls) {
-                cachedClassicWalls.put(s, cropped);
-                cachedClassicWallTsMap.put(s, ts);
-            }
-            if (s == 1) {
-                cachedClassicWall = cropped;
-                cachedClassicWallTs = ts;
-            }
+            cacheWall("classic:" + s, cropped, ts);
             return true;
         } catch (Throwable t) {
             return false;
@@ -1080,13 +1077,8 @@ public final class CustomMedia {
         if (c == null) return null;
         int s = Math.max(1, slot);
         long ts = prefs(c).getLong(classicWallTsKey(s), 0L);
-        synchronized (cachedClassicWalls) {
-            Bitmap cached = cachedClassicWalls.get(s);
-            Long cTs = cachedClassicWallTsMap.get(s);
-            if (cached != null && !cached.isRecycled() && cTs != null && cTs == ts) {
-                return cached;
-            }
-        }
+        Bitmap cached = cachedWall("classic:" + s, ts);
+        if (cached != null) return cached;
         File f = classicWallFile(c, s);
         if (!f.exists() || f.length() == 0) {
             if (s != 1) f = classicWallFile(c, 1);
@@ -1095,10 +1087,7 @@ public final class CustomMedia {
         try {
             Bitmap b = decodeBitmapFromFile(f, 1280, 720);
             if (b != null) {
-                synchronized (cachedClassicWalls) {
-                    cachedClassicWalls.put(s, b);
-                    cachedClassicWallTsMap.put(s, ts);
-                }
+                cacheWall("classic:" + s, b, ts);
             }
             return b;
         } catch (Throwable t) {
@@ -1129,8 +1118,7 @@ public final class CustomMedia {
             fos.flush();
             long ts = System.currentTimeMillis();
             prefs(c).edit().putLong("lock_wall_ts", ts).apply();
-            cachedLockWall = cropped;
-            cachedLockWallTs = ts;
+            cacheWall("lock", cropped, ts);
             return true;
         } catch (Throwable t) {
             return false;
@@ -1149,16 +1137,14 @@ public final class CustomMedia {
     public static Bitmap getCustomLockWallpaper(Context c) {
         if (c == null) return null;
         long ts = prefs(c).getLong("lock_wall_ts", 0L);
-        if (cachedLockWall != null && !cachedLockWall.isRecycled() && cachedLockWallTs == ts) {
-            return cachedLockWall;
-        }
+        Bitmap cached = cachedWall("lock", ts);
+        if (cached != null) return cached;
         File f = lockWallFile(c);
         if (!f.exists() || f.length() == 0) return null;
         try {
             Bitmap b = decodeBitmapFromFile(f, 1280, 720);
             if (b != null) {
-                cachedLockWall = b;
-                cachedLockWallTs = ts;
+                cacheWall("lock", b, ts);
             }
             return b;
         } catch (Throwable t) {
@@ -1177,7 +1163,7 @@ public final class CustomMedia {
             folderDeckMap.remove(scope);
             folderIndexMap.remove(scope);
             folderPathCacheMap.remove(scope);
-            folderCurrentBmpMap.remove(scope);
+            WALL_CACHE.remove("folder:" + scope);
             folderCurrentFileMap.remove(scope);
         }
     }
@@ -1220,7 +1206,7 @@ public final class CustomMedia {
         synchronized (folderDeckMap) {
             folderDeckMap.remove(scope);
             folderIndexMap.remove(scope);
-            folderCurrentBmpMap.remove(scope);
+            WALL_CACHE.remove("folder:" + scope);
         }
     }
 
@@ -1289,7 +1275,7 @@ public final class CustomMedia {
         File targetFile = null;
         synchronized (folderDeckMap) {
             if (!advance) {
-                Bitmap cur = folderCurrentBmpMap.get(scope);
+                Bitmap cur = cachedWall("folder:" + scope);
                 if (cur != null && !cur.isRecycled()) {
                     return cur;
                 }
@@ -1327,7 +1313,7 @@ public final class CustomMedia {
         Bitmap cropped = scaleCenterCropOrFit(raw, Math.max(1280, reqW), Math.max(720, reqH), true);
         if (cropped != raw) raw.recycle();
         synchronized (folderDeckMap) {
-            folderCurrentBmpMap.put(scope, cropped);
+            cacheWall("folder:" + scope, cropped, 0);
             folderCurrentFileMap.put(scope, targetFile.getAbsolutePath());
         }
         return cropped;
@@ -1468,8 +1454,8 @@ public final class CustomMedia {
         long intervalMs = Math.max(1, intervalMin) * 60_000L;
         Long lastFetch;
         Bitmap mem;
-        synchronized (redditBmpMap) {
-            mem = redditBmpMap.get(scope);
+        synchronized (redditLastFetchMap) {
+            mem = cachedWall("reddit:" + scope);
             lastFetch = redditLastFetchMap.get(scope);
         }
         if (mem == null || mem.isRecycled()) {
@@ -1478,8 +1464,8 @@ public final class CustomMedia {
                 Bitmap disk = decodeBitmapFromFile(f, Math.max(1280, reqW), Math.max(720, reqH));
                 if (disk != null) {
                     long diskTs = prefs(c).getLong("reddit_wall_ts_" + scope, f.lastModified());
-                    synchronized (redditBmpMap) {
-                        redditBmpMap.put(scope, disk);
+                    synchronized (redditLastFetchMap) {
+                        cacheWall("reddit:" + scope, disk, diskTs);
                         if (lastFetch == null) redditLastFetchMap.put(scope, diskTs);
                     }
                     mem = disk;
@@ -1556,8 +1542,8 @@ public final class CustomMedia {
                     }
                     long ts = System.currentTimeMillis();
                     prefs(appCtx).edit().putLong("reddit_wall_ts_" + scope, ts).apply();
-                    synchronized (redditBmpMap) {
-                        redditBmpMap.put(scope, cropped);
+                    synchronized (redditLastFetchMap) {
+                        cacheWall("reddit:" + scope, cropped, ts);
                         redditLastFetchMap.put(scope, ts);
                     }
                     final List<Runnable> toRun;

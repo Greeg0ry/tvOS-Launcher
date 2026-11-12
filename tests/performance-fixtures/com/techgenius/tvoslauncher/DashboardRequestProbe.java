@@ -24,5 +24,7 @@ public class DashboardRequestProbe {
             executor.setAccessible(true); ((ExecutorService) executor.get(null)).shutdownNow();
         }
         if (Suggestions.requests.get() != 1) throw new AssertionError("Expected one in-flight fetch per signature; actual=" + Suggestions.requests.get());
+        if (callbacks.getCount() != 0) throw new AssertionError("Missing callbacks: " + callbacks.getCount());
+        System.out.println("PASS: one transport request, all 20 callbacks delivered");
     }
 }

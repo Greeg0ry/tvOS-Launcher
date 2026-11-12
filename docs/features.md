@@ -15,7 +15,7 @@ Everything tvOS Launcher does, by area. For how the code is organised see
 The first time tvOS Launcher opens it walks through Apple-style pages, one question each (OK moves on, Back
 goes back):
 
-1. **Welcome**, fading through Indian and world languages, then *Get Started*.
+1. **Welcome**, in Russian or English, then *Get Started*.
 2. **Create Your Profile**: a name and an emoji avatar.
 3. **Choose a look**: the background, previewed live behind the page.
 4. **Your Home Screen** (this profile): Recommendations, News and Continue Watching on/off.
@@ -47,6 +47,12 @@ Settings → Home → **Run setup again** repeats it. If Home is pressed mid-way
 - **Background**: Aurora, Midnight, Sunset, Ocean or Graphite (per profile).
 
 ### Remote controls
+
+Home shows its shell while the app catalog loads in the background. Scene images and glass
+textures are prepared on workers; rapid background changes apply only the latest selection.
+Dashboard widgets share requests with the same settings and delay automatic retries for 30 seconds
+after a failure. Manual refresh can retry immediately.
+
 
 | Where | Key | Action |
 |---|---|---|

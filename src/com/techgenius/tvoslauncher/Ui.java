@@ -44,7 +44,7 @@ public final class Ui {
      * Inter (OFL, bundled): the closest open font to Apple's SF. "display" is Inter Display Bold for
      * large titles; "regular", "medium", "semibold" for UI and body text.
      */
-    public static android.graphics.Typeface font(Context c, String weight) {
+    public static synchronized android.graphics.Typeface font(Context c, String weight) {
         android.graphics.Typeface t = FONTS.get(weight);
         if (t == null) {
             String file = weight.equals("clock") ? "Antonio-Light"

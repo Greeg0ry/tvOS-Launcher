@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.*;
 /** Delayed transport: counts concurrent calls without accessing the network. */
 final class Suggestions {
     static final AtomicInteger requests = new AtomicInteger();
-    static final CountDownLatch started = new CountDownLatch(20);
+    static final CountDownLatch started = new CountDownLatch(1);
     static final CountDownLatch release = new CountDownLatch(1);
     static final Set<String> signatures = ConcurrentHashMap.newKeySet();
     static class Item { }
