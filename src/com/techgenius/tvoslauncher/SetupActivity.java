@@ -755,7 +755,8 @@ public class SetupActivity extends Activity {
             android.widget.Toast.makeText(this,
                     res == null
                             ? tr("Couldn't search. Check the internet connection.", "Arama yap\u0131lamad\u0131. \u0130nternet ba\u011flant\u0131s\u0131n\u0131 kontrol edin.")
-                            : tr("No place found for \u201c" + q + "\u201d.", "\u201c" + q + "\u201d i\u00e7in konum bulunamad\u0131."),
+                            : I18n.format(this, "No place found for “{0}”.",
+                                    "“{0}” için konum bulunamadı.", q),
                     android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
@@ -865,14 +866,13 @@ public class SetupActivity extends Activity {
             boolean secureClose = LocalAdb.getAdbMode(this) == LocalAdb.ADB_MODE_SECURE_CLOSE;
             title(tr("Enable ADB Debugging", "ADB Hata Ayıklamayı Etkinleştirin"));
             TextView s = subtitle(tr(
-                    "1. Open TV Settings \u2192 System \u2192 About and click Build 7 times to unlock Developer Options.\n"
-                    + "2. Open Settings \u2192 System \u2192 Developer Options and enable USB Debugging / Network Debugging.\n"
-                    + "3. Return here and select Grant Permissions Now"
-                    + (secureClose ? " (ADB port 5555 will be closed automatically right after setup)." : " (ADB will remain enabled for CleanYourTV)."),
-                    "1. TV Ayarları \u2192 Sistem \u2192 Hakkında menüsüne gidin ve Geliştirici Seçeneklerini açmak için Yapı Numarası'na 7 kez basın.\n"
-                    + "2. Ayarlar \u2192 Sistem \u2192 Geliştirici Seçenekleri'nden USB / Ağ Hata Ayıklamayı açın.\n"
-                    + "3. Buraya dönüp İzinleri Şimdi Ver'i seçin"
-                    + (secureClose ? " (Kurulumdan hemen sonra ADB port 5555 otomatik olarak kapatılacaktır)." : " (CleanYourTV için ADB açık kalacaktır).")));
+                    "1. Open TV Settings → System → About and click Build 7 times to unlock Developer Options.\n"
+                    + "2. Open Settings → System → Developer Options and enable USB Debugging / Network Debugging.\n"
+                    + "3. Return here and select Grant Permissions Now",
+                    "1. Geliştirici Seçenekleri için Yapı Numarasına 7 kez basın.\n2. USB / Ağ Hata Ayıklamayı açın.\n3. Buraya dönüp İzinleri Şimdi Ver’i seçin.") + (secureClose
+                    ? tr(" (ADB port 5555 will be closed automatically right after setup).",
+                         " (Kurulumdan hemen sonra ADB port 5555 otomatik olarak kapatılacaktır).")
+                    : tr(" (ADB will remain enabled for CleanYourTV).", " (CleanYourTV için ADB açık kalacaktır).")));
             ((LinearLayout.LayoutParams) s.getLayoutParams()).width = u(620);
             ((LinearLayout.LayoutParams) s.getLayoutParams()).bottomMargin = u(14);
             LinearLayout l = scrollableList();

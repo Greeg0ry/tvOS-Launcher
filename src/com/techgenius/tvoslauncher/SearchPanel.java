@@ -939,7 +939,9 @@ final class SearchPanel {
         name.setSingleLine(true);
         name.setEllipsize(TextUtils.TruncateAt.END);
         boolean have = o.installed();
-        name.setText(have ? tr("\u25b6  Open in " + o.service, "\u25b6  " + o.service + " ile A\u00e7") : tr("Get " + o.service, o.service + " \u0130ndir"));
+        name.setText(have ? I18n.format(a, "▶  Open in {0}",
+                "▶  {0} ile Aç", o.service) : I18n.format(a, "Get {0}",
+                        "{0} İndir", o.service));
         b.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView kind = a.text(12, Ui.font(a, "medium"), 0.7f);
         kind.setShadowLayer(0, 0, 0, 0);

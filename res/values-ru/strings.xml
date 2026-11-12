@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="power_service_desc">Позволяет tvOS Launcher переназначать кнопки пульта, открывать панель управления поверх приложений, переводить устройство в сон по кнопке или таймеру и закрывать фоновые приложения.</string>
+    <string name="power_service_label">tvOS Launcher — кнопки пульта и панель управления</string>
+    <string name="media_watch_service_label">tvOS Launcher — продолжить просмотр</string>
+</resources>

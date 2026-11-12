@@ -378,11 +378,12 @@ public final class CleanYourTv {
         List<String> saved = getSavedDisabledPackages(c);
         if (isDebloatDone(c)) {
             int count = Math.max(disabledCount, saved.size());
-            return tr(c, "Done (" + count + " apps disabled)", "Tamamlandı (" + count + " uygulama devre dışı)");
+            return I18n.format(c, "Done ({0} apps disabled)",
+                    "Tamamlandı ({0} uygulama devre dışı)", count);
         }
         if (disabledCount > 0) {
-            return tr(c, "Not done (" + disabledCount + "/" + installedCount + " disabled)",
-                    "Yapılmadı (" + disabledCount + "/" + installedCount + " devre dışı)");
+            return I18n.format(c, "Not done ({0}/{1} disabled)",
+                    "Yapılmadı ({0}/{1} devre dışı)", disabledCount, installedCount);
         }
         return tr(c, "Not done", "Yapılmadı");
     }
@@ -662,14 +663,16 @@ public final class CleanYourTv {
                         || metaLow.contains("model=\"" + modelLower + "\"")
                         || titleLow.contains("(" + modelLower + ")")) {
                     score += 90;
-                    reasons.add(tr(c, "Model: " + model, "Model: " + model));
+                    reasons.add(I18n.format(c, "Model: {0}",
+                            "Model: {0}", model));
                 }
             }
 
             if (!productLower.isEmpty() && productLower.length() >= 3
                     && (metaLow.contains("product " + productLower) || metaLow.contains(productLower))) {
                 score += 80;
-                reasons.add(tr(c, "Product: " + product, "Ürün kodu: " + product));
+                reasons.add(I18n.format(c, "Product: {0}",
+                        "Ürün kodu: {0}", product));
             }
 
             if (!deviceLower.isEmpty() && deviceLower.length() >= 3
@@ -677,7 +680,8 @@ public final class CleanYourTv {
                         || metaLow.contains("device: " + deviceLower)
                         || slugLow.contains("-" + deviceLower))) {
                 score += 65;
-                reasons.add(tr(c, "Board/Device: " + device, "Anakart/Cihaz: " + device));
+                reasons.add(I18n.format(c, "Board/Device: {0}",
+                        "Anakart/Cihaz: {0}", device));
             }
 
             // 3. Brand / Manufacturer match
@@ -694,8 +698,8 @@ public final class CleanYourTv {
             }
             if (brandMatched) {
                 score += 35;
-                reasons.add(tr(c, "Brand/OEM: " + (brand.isEmpty() ? manufacturer : brand),
-                        "Marka/Üretici: " + (brand.isEmpty() ? manufacturer : brand)));
+                reasons.add(I18n.format(c, "Brand/OEM: {0}",
+                        "Marka/Üretici: {0}", (brand.isEmpty()?manufacturer:brand)));
             }
 
             // 4. Token overlap with model name
@@ -842,18 +846,17 @@ public final class CleanYourTv {
 
             String oemDetail;
             if (oemMatched > 0) {
-                oemDetail = tr(c,
-                        oemMatched + "/" + modelOemCount + " OEM pkgs: " + TextUtils.join(", ", sampleOem),
-                        oemMatched + "/" + modelOemCount + " üretici paketi: " + TextUtils.join(", ", sampleOem));
+                oemDetail = I18n.format(c, "OEM packages: {0}/{1}: {2}",
+                        "OEM paketleri: {0}/{1}: {2}", oemMatched, modelOemCount, TextUtils.join(", ", sampleOem));
             } else if (familyMatched) {
-                oemDetail = tr(c, "OEM family: " + matchedFamilyName, "Üretici ailesi: " + matchedFamilyName);
+                oemDetail = I18n.format(c, "OEM family: {0}",
+                        "Üretici ailesi: {0}", matchedFamilyName);
             } else {
                 oemDetail = tr(c, "Generic Android TV / Google TV profile", "Genel Android TV / Google TV profili");
             }
 
-            String reason = tr(c,
-                    totalMatched + "/" + entry.packages.size() + " apps (" + oemDetail + ")",
-                    totalMatched + "/" + entry.packages.size() + " uygulama (" + oemDetail + ")");
+            String reason = I18n.format(c, "{0}/{1} apps ({2})",
+                    "{0}/{1} uygulama ({2})", totalMatched, entry.packages.size(), oemDetail);
             matches.add(new ModelMatch(entry, score, reason));
         }
         Collections.sort(matches, (a, b) -> Integer.compare(b.score, a.score));
@@ -965,13 +968,8 @@ public final class CleanYourTv {
                 startDebloatFlow(activity, onChanged);
             } else {
                 dialog(activity, tr(activity, "TV Model Matched", "TV Modeli Eşleşti"))
-                        .setMessage(tr(activity,
-                                "Exact TV model found and selected automatically:\n\n• "
-                                        + hw.exactSingleMatch.entry.title + " (" + hw.exactSingleMatch.entry.slug + ")\n"
-                                        + hw.exactSingleMatch.reason,
-                                "Tam TV modeli bulundu ve otomatik olarak seçildi:\n\n• "
-                                        + hw.exactSingleMatch.entry.title + " (" + hw.exactSingleMatch.entry.slug + ")\n"
-                                        + hw.exactSingleMatch.reason))
+                        .setMessage(I18n.format(activity, "Exact TV model found and selected automatically:\n\n• {0} ({1})\n{2}",
+                                "Tam TV modeli bulundu ve otomatik olarak seçildi:\n\n• {0} ({1})\n{2}", hw.exactSingleMatch.entry.title, hw.exactSingleMatch.entry.slug, hw.exactSingleMatch.reason))
                         .setPositiveButton(tr(activity, "OK", "Tamam"), null)
                         .setNeutralButton(tr(activity, "Change Model…", "Modeli Değiştir…"),
                                 (d, w) -> showCandidateMatchesDialog(activity, hw, onChanged, false))
@@ -1141,9 +1139,8 @@ public final class CleanYourTv {
                         "Desteklenen tüm TV modellerinin tam listesini görüntüle veya filtrele"),
                 false));
 
-        String title = tr(activity,
-                "Choose Closest TV Model — " + hw.deviceDescription,
-                "En Yakın TV Modelini Seçin — " + hw.deviceDescription);
+        String title = I18n.format(activity, "Choose Closest TV Model — {0}",
+                "En Yakın TV Modelini Seçin — {0}", hw.deviceDescription);
 
         ArrayAdapter<SpacedRowItem> adapter = createSpacedAdapter(activity, rows);
         AlertDialog dlg = dialog(activity, title)
@@ -1214,9 +1211,8 @@ public final class CleanYourTv {
                         "Desteklenen tüm TV modellerinin tam listesini görüntüle veya filtrele"),
                 false));
 
-        String title = tr(activity,
-                "Models with Similar System Apps (" + totalInstalled + " apps scanned)",
-                "Benzer Sistem Uygulamalarına Sahip Modeller (" + totalInstalled + " uygulama tarandı)");
+        String title = I18n.format(activity, "Models with Similar System Apps ({0} apps scanned)",
+                "Benzer Sistem Uygulamalarına Sahip Modeller ({0} uygulama tarandı)", totalInstalled);
 
         ArrayAdapter<SpacedRowItem> adapter = createSpacedAdapter(activity, rows);
         AlertDialog dlg = dialog(activity, title)
@@ -1269,9 +1265,10 @@ public final class CleanYourTv {
         }
 
         String title = q.isEmpty()
-                ? tr(activity, "All TV Models (" + filtered.size() + ")", "Tüm TV Modelleri (" + filtered.size() + ")")
-                : tr(activity, "Search: \"" + initialQuery + "\" (" + filtered.size() + ")",
-                     "Arama: \"" + initialQuery + "\" (" + filtered.size() + ")");
+                ? I18n.format(activity, "All TV Models ({0})",
+                        "Tüm TV Modelleri ({0})", filtered.size())
+                : I18n.format(activity, "Search: \"{0}\" ({1})",
+                        "Arama: \"{0}\" ({1})", initialQuery, filtered.size());
 
         ArrayAdapter<SpacedRowItem> adapter = createSpacedAdapter(activity, rows);
         AlertDialog dlg = dialog(activity, title)
@@ -1677,9 +1674,11 @@ public final class CleanYourTv {
             if (it.checked) active++;
         }
         if (active == 0) {
-            return tr(c, "All disabled (" + items.size() + ")", "Tümü devre dışı (" + items.size() + ")");
+            return I18n.format(c, "All disabled ({0})",
+                    "Tümü devre dışı ({0})", items.size());
         }
-        return tr(c, active + " active / " + items.size() + " found ›", active + " etkin / " + items.size() + " bulundu ›");
+        return I18n.format(c, "{0} active / {1} found ›",
+                "{0} etkin / {1} bulundu ›", active, items.size());
     }
 
     /**
@@ -1764,18 +1763,16 @@ public final class CleanYourTv {
         String resolvedLabel = resolvePackageLabel(activity, pkg);
         if (disable && isCriticalProtectedService(pkg, resolvedLabel)) {
             dialog(activity, tr(activity, "🛑 Critical System Service", "🛑 Kritik Sistem Servisi"))
-                    .setMessage(tr(activity,
-                            resolvedLabel + " (" + pkg + ") is a critical system service required for your TV remote and Bluetooth connectivity.\n\nIt cannot be disabled under any circumstances.",
-                            resolvedLabel + " (" + pkg + ") TV kumandanız ve Bluetooth bağlantısı için gerekli kritik bir sistem servisidir.\n\nHiçbir koşulda devre dışı bırakılamaz."))
+                    .setMessage(I18n.format(activity, "{0} ({1}) is a critical system service required for your TV remote and Bluetooth connectivity.\n\nIt cannot be disabled under any circumstances.",
+                            "{0} ({1}) TV kumandanız ve Bluetooth bağlantısı için gerekli kritik bir sistem servisidir.\n\nHiçbir koşulda devre dışı bırakılamaz.", resolvedLabel, pkg))
                     .setPositiveButton(tr(activity, "OK", "Tamam"), null)
                     .show();
             return;
         }
         if (disable && !allowAnySystemApp && !isSafeToDisable(activity, pkg)) {
             dialog(activity, tr(activity, "Protected Core Package", "Korunan Temel Paket"))
-                    .setMessage(tr(activity,
-                            pkg + " is a protected core system package and cannot be disabled automatically.",
-                            pkg + " korunan bir temel sistem paketidir."))
+                    .setMessage(I18n.format(activity, "{0} is a protected core system package and cannot be disabled automatically.",
+                            "{0} korunan bir temel sistem paketidir.", pkg))
                     .setPositiveButton(tr(activity, "OK", "Tamam"), null)
                     .show();
             return;
@@ -1800,8 +1797,13 @@ public final class CleanYourTv {
             }
             cmds.add("sync");
 
-            boolean connected = LocalAdb.execShellSequential(activity, cmds, null);
-            if (connected) {
+            final boolean[] changed = {false};
+            boolean connected = LocalAdb.execShellSequential(activity, cmds, (idx, total, cmd, output) -> {
+                if (cmd.startsWith(disable ? "pm disable-user --user 0 " : "pm enable --user 0 ")) {
+                    changed[0] = PackageCommandResult.succeeded(output, pkg, disable);
+                }
+            });
+            if (changed[0]) {
                 if (disable) {
                     String slug = getSelectedModelSlug(activity);
                     saveDisabledPackages(activity, slug.isEmpty() ? "manual" : slug, Collections.singletonList(pkg));
@@ -1818,11 +1820,11 @@ public final class CleanYourTv {
                     progress.dismiss();
                 } catch (Throwable ignored) {
                 }
-                if (!connected) {
+                if (!connected || !changed[0]) {
                     dialog(activity, tr(activity, "ADB Connection Required", "ADB Bağlantısı Gerekli"))
                             .setMessage(tr(activity,
-                                    "Could not connect to local ADB on port 5555.\nPlease enable USB / Network Debugging in Developer Options and tap Pair / Repair ADB first.",
-                                    "Port 5555 üzerinden yerel ADB'ye bağlanılamadı.\nLütfen Geliştirici Seçenekleri'nden USB / Ağ Hata Ayıklamayı açın ve önce ADB Eşleştir / Onar'a basın."))
+                                    "Package state change was not confirmed. Check ADB and the package permissions, then try again.",
+                                    "Paket durumu değişikliği doğrulanamadı. ADB ve paket izinlerini kontrol edip tekrar deneyin."))
                             .setPositiveButton(tr(activity, "OK", "Tamam"), null)
                             .show();
                 }
@@ -1934,9 +1936,8 @@ public final class CleanYourTv {
         }
 
         AlertDialog loading = dialog(activity, tr(activity, "Preparing CleanYourTV…", "CleanYourTV Hazırlanıyor…"))
-                .setMessage(tr(activity,
-                        "Checking installed packages and Wi-Fi status over ADB for " + model.title + "…",
-                        model.title + " için ADB üzerinden yüklü paketler ve Wi-Fi durumu kontrol ediliyor…"))
+                .setMessage(I18n.format(activity, "Checking installed packages and Wi-Fi status over ADB for {0}…",
+                        "{0} için ADB üzerinden yüklü paketler ve Wi-Fi durumu kontrol ediliyor…", model.title))
                 .setCancelable(false)
                 .create();
         loading.show();
@@ -2050,11 +2051,8 @@ public final class CleanYourTv {
         // If the selected model had very few matching apps on this TV, also offer scanning by package names
         if (items.isEmpty()) {
             AlertDialog emptyDlg = dialog(activity, tr(activity, "No Matching Apps Found", "Eşleşen Uygulama Bulunamadı"))
-                    .setMessage(tr(activity,
-                            "None of the packages listed in " + model.title + " (" + model.slug + ") are installed on this TV.\n\n"
-                            + "Would you like to scan your TV's installed apps over ADB to find the closest matching TV model?",
-                            model.title + " (" + model.slug + ") listesindeki paketlerin hiçbiri bu TV'de yüklü değil.\n\n"
-                            + "En yakın TV modelini bulmak için ADB üzerinden yüklü uygulamaları taramak ister misiniz?"))
+                    .setMessage(I18n.format(activity, "None of the packages listed in {0} ({1}) are installed on this TV.\n\nWould you like to scan your TV's installed apps over ADB to find the closest matching TV model?",
+                            "{0} ({1}) listesindeki paketlerin hiçbiri bu TV'de yüklü değil.\n\nEn yakın TV modelini bulmak için ADB üzerinden yüklü uygulamaları taramak ister misiniz?", model.title, model.slug))
                     .setPositiveButton(tr(activity, "Scan Installed Apps", "Yüklü Uygulamaları Tara"), (d, w) -> {
                         runAdbPackageSimilarityScan(activity, Build.MODEL, onChanged, true);
                     })
@@ -2065,9 +2063,8 @@ public final class CleanYourTv {
             return;
         }
 
-        String title = tr(activity,
-                "Select Apps to Disable — " + model.title + " (" + items.size() + " found)",
-                "Devre Dışı Bırakılacak Uygulamaları Seçin — " + model.title + " (" + items.size() + " bulundu)");
+        String title = I18n.format(activity, "Select Apps to Disable — {0} ({1} found)",
+                "Devre Dışı Bırakılacak Uygulamaları Seçin — {0} ({1} bulundu)", model.title, items.size());
 
         ArrayAdapter<DebloatItem> adapter = new ArrayAdapter<DebloatItem>(activity, 0, items) {
             @Override
@@ -2243,9 +2240,8 @@ public final class CleanYourTv {
         if (safePkgs.isEmpty()) return;
 
         AlertDialog progress = dialog(activity, tr(activity, "Debloating TV…", "TV Temizleniyor (Debloat)…"))
-                .setMessage(tr(activity,
-                        "Starting ADB debloat for " + safePkgs.size() + " packages…",
-                        safePkgs.size() + " paket için ADB debloat işlemi başlatılıyor…"))
+                .setMessage(I18n.format(activity, "Starting ADB debloat for {0} packages…",
+                        "{0} paket için ADB debloat işlemi başlatılıyor…", safePkgs.size()))
                 .setCancelable(false)
                 .create();
         progress.show();
@@ -2259,30 +2255,25 @@ public final class CleanYourTv {
             }
             commands.add("sync");
 
-            final List<String> succeededPkgs = new ArrayList<>();
-            final List<String> failedPkgs = new ArrayList<>();
+            final Set<String> succeededPkgs = new HashSet<>();
 
             boolean connected = LocalAdb.execShellSequential(activity, commands, (idx, total, cmd, output) -> {
                 if (cmd.startsWith("pm disable-user --user 0 ")) {
                     String pkg = cmd.substring("pm disable-user --user 0 ".length()).trim();
-                    if (output != null && (output.contains("disabled-user") || output.contains("new state"))) {
-                        succeededPkgs.add(pkg);
-                    } else {
-                        // Even if output was terse, check PackageManager state
+                    if (PackageCommandResult.succeeded(output, pkg, true)) {
                         succeededPkgs.add(pkg);
                     }
                     activity.runOnUiThread(() -> {
                         if (!activity.isFinishing()) {
-                            progress.setMessage(tr(activity,
-                                    "Disabling (" + idx + "/" + (total - 1) + "):\n" + pkg,
-                                    "Devre dışı bırakılıyor (" + idx + "/" + (total - 1) + "):\n" + pkg));
+                            progress.setMessage(I18n.format(activity, "Disabling ({0}/{1}):\n{2}",
+                                    "Devre dışı bırakılıyor ({0}/{1}):\n{2}", idx, (total-1), pkg));
                         }
                     });
                 }
             });
 
-            if (connected) {
-                saveDisabledPackages(activity, model.slug, safePkgs);
+            if (!succeededPkgs.isEmpty()) {
+                saveDisabledPackages(activity, model.slug, new ArrayList<>(succeededPkgs));
             }
 
             activity.runOnUiThread(() -> {
@@ -2293,7 +2284,7 @@ public final class CleanYourTv {
                 }
                 if (onChanged != null) onChanged.run();
 
-                if (!connected) {
+                if (!connected && succeededPkgs.isEmpty()) {
                     dialog(activity, tr(activity, "ADB Connection Required", "ADB Bağlantısı Gerekli"))
                             .setMessage(tr(activity,
                                     "Could not connect to local ADB on port 5555.\nPlease make sure USB / Network Debugging is enabled in Developer Options and tap Pair / Repair ADB first.",
@@ -2304,14 +2295,9 @@ public final class CleanYourTv {
                 }
 
                 dialog(activity, tr(activity, "Debloat Complete", "Debloat Tamamlandı"))
-                        .setMessage(tr(activity,
-                                "Successfully disabled " + safePkgs.size() + " packages for " + model.title + ".\n\n"
-                                + "• Saved disabled app list (" + getSavedDisabledPackages(activity).size() + " apps) for one-tap Restore.\n"
-                                + "• Flushed package state to disk (sync).",
-                                model.title + " için " + safePkgs.size() + " paket başarıyla devre dışı bırakıldı.\n\n"
-                                + "• Tek dokunuşla Geri Yükleme için devre dışı bırakılan uygulama listesi ("
-                                + getSavedDisabledPackages(activity).size() + " uygulama) kaydedildi.\n"
-                                + "• Paket durumu diske yazıldı (sync)."))
+                        .setMessage(I18n.format(activity, "Disabled: {0} of {1}.\nUnconfirmed: {2}.\nOnly confirmed packages were added to the restore list.",
+                                "Devre dışı: {0} / {1}.\nDoğrulanamayan: {2}.\nYalnızca doğrulanan paketler geri yükleme listesine eklendi.",
+                                succeededPkgs.size(), safePkgs.size(), safePkgs.size() - succeededPkgs.size()))
                         .setPositiveButton(tr(activity, "Done", "Tamam"), null)
                         .show();
             });
@@ -2350,9 +2336,8 @@ public final class CleanYourTv {
         }
 
         ArrayAdapter<SpacedRowItem> adapter = createSpacedAdapter(activity, rows);
-        AlertDialog dlg = dialog(activity, tr(activity,
-                "Disabled Apps (" + saved.size() + " — Tap an app to re-enable)",
-                "Devre Dışı Uygulamalar (" + saved.size() + " — Etkinleştirmek için dokunun)"))
+        AlertDialog dlg = dialog(activity, I18n.format(activity, "Disabled Apps ({0} — Tap an app to re-enable)",
+                "Devre Dışı Uygulamalar ({0} — Etkinleştirmek için dokunun)", saved.size()))
                 .setAdapter(adapter, (d, which) -> {
                     if (which >= 0 && which < saved.size()) {
                         String pkg = saved.get(which);
@@ -2379,21 +2364,19 @@ public final class CleanYourTv {
         ModelEntry model = findModelBySlug(activity, slug);
 
         if (!saved.isEmpty()) {
-            String msg = tr(activity,
-                    "Found saved disabled-app data (" + saved.size() + " packages).\n\n"
-                    + "Re-enable all " + saved.size() + " saved packages over ADB?",
-                    "Kaydedilmiş devre dışı uygulama verisi bulundu (" + saved.size() + " paket).\n\n"
-                    + "Kaydedilen " + saved.size() + " paketin tamamı ADB üzerinden yeniden etkinleştirilsin mi?");
+            String msg = I18n.format(activity, "Found saved disabled-app data ({0} packages).\n\nRe-enable all {0} saved packages over ADB?",
+                    "Kaydedilmiş devre dışı uygulama verisi bulundu ({0} paket).\n\nKaydedilen {0} paketin tamamı ADB üzerinden yeniden etkinleştirilsin mi?", saved.size());
 
             AlertDialog.Builder b = dialog(activity, tr(activity, "Restore Debloated Apps", "Uygulamaları Geri Yükle"))
                     .setMessage(msg)
-                    .setPositiveButton(tr(activity, "Restore Saved (" + saved.size() + ")", "Kaydedilenleri Yükle (" + saved.size() + ")"),
+                    .setPositiveButton(I18n.format(activity, "Restore Saved ({0})",
+                            "Kaydedilenleri Yükle ({0})", saved.size()),
                             (d, w) -> enablePackagesBatch(activity, saved, true, onChanged))
                     .setNegativeButton(tr(activity, "Cancel", "İptal"), null);
 
             if (model != null && !model.packages.isEmpty()) {
-                b.setNeutralButton(tr(activity, "Restore Model List (" + model.packages.size() + ")",
-                        "Model Listesini Yükle (" + model.packages.size() + ")"), (d, w) -> {
+                b.setNeutralButton(I18n.format(activity, "Restore Model List ({0})",
+                        "Model Listesini Yükle ({0})", model.packages.size()), (d, w) -> {
                     LinkedHashSet<String> union = new LinkedHashSet<>(saved);
                     union.addAll(model.packages);
                     enablePackagesBatch(activity, new ArrayList<>(union), true, onChanged);
@@ -2423,15 +2406,10 @@ public final class CleanYourTv {
         }
 
         AlertDialog dlg = dialog(activity, tr(activity, "Restore by Selected TV Model", "Seçili TV Modeline Göre Geri Yükle"))
-                .setMessage(tr(activity,
-                        "No saved disabled-app list was found.\n\n"
-                        + "Restore will use your selected TV model (" + model.title + ") and re-enable its "
-                        + model.packages.size() + " packages over ADB.",
-                        "Kaydedilmiş devre dışı uygulama listesi bulunamadı.\n\n"
-                        + "Geri yükleme işlemi seçili TV modelinizi (" + model.title + ") kullanacak ve "
-                        + model.packages.size() + " paketi ADB üzerinden yeniden etkinleştirecek."))
-                .setPositiveButton(tr(activity, "Restore (" + model.packages.size() + " pkgs)",
-                        "Geri Yükle (" + model.packages.size() + " paket)"),
+                .setMessage(I18n.format(activity, "No saved disabled-app list was found.\n\nRestore will use your selected TV model ({0}) and re-enable its {1} packages over ADB.",
+                        "Kaydedilmiş devre dışı uygulama listesi bulunamadı.\n\nGeri yükleme işlemi seçili TV modelinizi ({0}) kullanacak ve {1} paketi ADB üzerinden yeniden etkinleştirecek.", model.title, model.packages.size()))
+                .setPositiveButton(I18n.format(activity, "Restore ({0} pkgs)",
+                        "Geri Yükle ({0} paket)", model.packages.size()),
                         (d, w) -> enablePackagesBatch(activity, model.packages, true, onChanged))
                 .setNegativeButton(tr(activity, "Cancel", "İptal"), null)
                 .create();
@@ -2444,9 +2422,8 @@ public final class CleanYourTv {
         if (packagesToEnable == null || packagesToEnable.isEmpty()) return;
 
         AlertDialog progress = dialog(activity, tr(activity, "Restoring Apps…", "Uygulamalar Geri Yükleniyor…"))
-                .setMessage(tr(activity,
-                        "Re-enabling " + packagesToEnable.size() + " packages over ADB…",
-                        packagesToEnable.size() + " paket ADB üzerinden yeniden etkinleştiriliyor…"))
+                .setMessage(I18n.format(activity, "Re-enabling {0} packages over ADB…",
+                        "{0} paket ADB üzerinden yeniden etkinleştiriliyor…", packagesToEnable.size()))
                 .setCancelable(false)
                 .create();
         progress.show();
@@ -2461,34 +2438,31 @@ public final class CleanYourTv {
             }
             commands.add("sync");
 
+            final Set<String> succeededPkgs = new HashSet<>();
             boolean connected = LocalAdb.execShellSequential(activity, commands, (idx, total, cmd, output) -> {
                 if (cmd.startsWith("pm enable --user 0 ")) {
                     String pkg = cmd.substring("pm enable --user 0 ".length()).trim();
+                    if (PackageCommandResult.succeeded(output, pkg, false)) succeededPkgs.add(pkg);
                     activity.runOnUiThread(() -> {
                         if (!activity.isFinishing()) {
-                            progress.setMessage(tr(activity,
-                                    "Enabling (" + idx + "/" + Math.max(1, total - 1) + "):\n" + pkg,
-                                    "Etkinleştiriliyor (" + idx + "/" + Math.max(1, total - 1) + "):\n" + pkg));
+                            progress.setMessage(I18n.format(activity, "Enabling ({0}/{1}):\n{2}",
+                                    "Etkinleştiriliyor ({0}/{1}):\n{2}", idx, Math.max(1,total-1), pkg));
                         }
                     });
                 }
             });
 
-            if (connected) {
-                if (clearRecordOnSuccess) {
+            if (!succeededPkgs.isEmpty()) {
+                List<String> remaining = new ArrayList<>(getSavedDisabledPackages(activity));
+                remaining.removeAll(succeededPkgs);
+                if (remaining.isEmpty()) {
                     clearSavedDisabledPackages(activity);
                 } else {
-                    List<String> remaining = new ArrayList<>(getSavedDisabledPackages(activity));
-                    remaining.removeAll(packagesToEnable);
-                    if (remaining.isEmpty()) {
-                        clearSavedDisabledPackages(activity);
-                    } else {
-                        prefs(activity).edit().putString(KEY_DISABLED_PKGS, TextUtils.join(",", remaining)).apply();
-                    }
+                    prefs(activity).edit().putString(KEY_DISABLED_PKGS, TextUtils.join(",", remaining)).apply();
                 }
             }
 
-            final int enabledCount = Math.max(0, commands.size() - 1);
+            final int enabledCount = succeededPkgs.size();
             activity.runOnUiThread(() -> {
                 if (activity.isFinishing()) return;
                 try {
@@ -2497,7 +2471,7 @@ public final class CleanYourTv {
                 }
                 if (onChanged != null) onChanged.run();
 
-                if (!connected) {
+                if (!connected && succeededPkgs.isEmpty()) {
                     dialog(activity, tr(activity, "ADB Connection Required", "ADB Bağlantısı Gerekli"))
                             .setMessage(tr(activity,
                                     "Could not connect to local ADB on port 5555.",
@@ -2508,9 +2482,8 @@ public final class CleanYourTv {
                 }
 
                 dialog(activity, tr(activity, "Restore Complete", "Geri Yükleme Tamamlandı"))
-                        .setMessage(tr(activity,
-                                "Re-enabled " + enabledCount + " packages on this TV and flushed state to disk (sync).",
-                                "Bu TV'de " + enabledCount + " paket yeniden etkinleştirildi ve durum diske yazıldı (sync)."))
+                        .setMessage(I18n.format(activity, "Restored: {0} of {1}.\nUnconfirmed packages remain in the restore list.",
+                                "Geri yüklenen: {0} / {1}.\nDoğrulanamayan paketler geri yükleme listesinde kalır.", enabledCount, packagesToEnable.size()))
                         .setPositiveButton(tr(activity, "Done", "Tamam"), null)
                         .show();
             });

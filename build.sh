@@ -13,7 +13,7 @@ SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 [ -d "$SDK" ] || SDK="$HOME/Android/Sdk"  # Linux default
 BT="$SDK/build-tools/34.0.0"
 JAR="$SDK/platforms/android-34/android.jar"
-for f in "$BT/aapt2" "$BT/d8" "$JAR"; do
+for f in "$BT/aapt2" "$BT/d8" "$BT/zipalign" "$BT/apksigner" "$JAR"; do
     [ -e "$f" ] || { echo "Missing $f — install build-tools 34.0.0 and platform android-34 (sdkmanager), or set ANDROID_HOME." >&2; exit 1; }
 done
 command -v javac >/dev/null || { echo "javac not found — install JDK 17+ or set JAVA_HOME." >&2; exit 1; }
@@ -23,12 +23,12 @@ rm -rf build && mkdir -p build/gen build/classes build/dex
 "$BT/aapt2" compile --dir res -o build/res.zip
 "$BT/aapt2" link -o build/unsigned.apk -I "$JAR" --manifest AndroidManifest.xml \
     -A assets --java build/gen --min-sdk-version 24 --target-sdk-version 34 \
-    --version-code "${VERSION_CODE:-15}" --version-name "${VERSION_NAME:-2.1.5}" build/res.zip
+    --version-code "${VERSION_CODE:-16}" --version-name "${VERSION_NAME:-2.1.5-ru.1}" build/res.zip
 
 javac -encoding UTF-8 --release 11 -classpath "$JAR" \
     -d build/classes $(find src build/gen -name '*.java')
 "$BT/d8" --release --min-api 24 --lib "$JAR" --output build/dex $(find build/classes -name '*.class')
-(cd build/dex && zip -q ../unsigned.apk classes.dex)
+jar uf build/unsigned.apk -C build/dex classes.dex
 
 "$BT/zipalign" -f 4 build/unsigned.apk build/aligned.apk
 

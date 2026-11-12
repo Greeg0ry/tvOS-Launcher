@@ -2004,7 +2004,12 @@ public final class CustomMedia {
         try {
             if (Build.VERSION.SDK_INT >= 33) {
                 if (a.checkSelfPermission("android.permission.READ_MEDIA_IMAGES") != PackageManager.PERMISSION_GRANTED) {
-                    a.requestPermissions(new String[]{"android.permission.READ_MEDIA_IMAGES", "android.permission.READ_EXTERNAL_STORAGE"}, 9402);
+                    a.requestPermissions(new String[]{"android.permission.READ_MEDIA_IMAGES"}, 9402);
+                }
+            } else if (Build.VERSION.SDK_INT >= 30) {
+                // WRITE_EXTERNAL_STORAGE has no effect for target 30+ apps on Android 11+.
+                if (a.checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    a.requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, 9402);
                 }
             } else {
                 if (a.checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
@@ -2207,8 +2212,8 @@ public final class CustomMedia {
             }
             if (labels.size() == 1) {
                 String exts = allowIco ? ".jpg, .jpeg, .png, .ico" : ".jpg, .jpeg, .png";
-                labels.add("ℹ️  " + I18n.s(activity, "No image files (" + exts + ") in this folder",
-                        "Bu klasörde görsel dosyası (" + exts + ") bulunamadı"));
+                labels.add("ℹ️  " + I18n.format(activity, "No image files ({0}) in this folder",
+                        "Bu klasörde görsel dosyası ({0}) bulunamadı", exts));
                 actions.add(() -> showDirectoryBrowser(activity, title, currentDir, allowIco, maxW, maxH, resetLabel, onReset, callback));
             }
         }
@@ -2289,9 +2294,8 @@ public final class CustomMedia {
         } else {
             int imgCount = countImagesInFolder(currentDir);
             if (imgCount > 0) {
-                labels.add("✓  " + I18n.s(activity,
-                        "Select this folder & shuffle (" + imgCount + " images)",
-                        "Bu klasörü seç ve karıştır (" + imgCount + " görsel)"));
+                labels.add("✓  " + I18n.format(activity, "Select this folder & shuffle ({0} images)",
+                        "Bu klasörü seç ve karıştır ({0} görsel)", imgCount));
                 actions.add(() -> {
                     if (callback != null) callback.onFolderPicked(currentDir, imgCount);
                 });
@@ -2566,21 +2570,15 @@ public final class CustomMedia {
                 if (success) {
                     new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                             .setTitle(I18n.s(activity, "Settings Backed Up", "Ayarlar Yedeklendi"))
-                            .setMessage(I18n.s(activity,
-                                    "Your current tvOS Launcher settings have been saved to:\n\n" + finalPath,
-                                    "Mevcut tvOS Launcher ayarlarınız şu konuma kaydedildi:\n\n" + finalPath))
+                            .setMessage(I18n.format(activity, "Your current tvOS Launcher settings have been saved to:\n\n{0}",
+                                    "Mevcut tvOS Launcher ayarlarınız şu konuma kaydedildi:\n\n{0}", finalPath))
                             .setPositiveButton(I18n.s(activity, "OK", "Tamam"), null)
                             .show();
                 } else {
                     new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                             .setTitle(I18n.s(activity, "Backup Failed", "Yedekleme Başarısız"))
-                            .setMessage(I18n.s(activity,
-                                    "Could not write to Download/" + SETTINGS_BACKUP_FILENAME
-                                            + (finalErr != null ? "\n\n" + finalErr : "")
-                                            + "\n\nPlease allow storage access and try again.",
-                                    "Download/" + SETTINGS_BACKUP_FILENAME + " dosyasına yazılamadı"
-                                            + (finalErr != null ? "\n\n" + finalErr : "")
-                                            + "\n\nLütfen depolama erişimine izin verip tekrar deneyin."))
+                            .setMessage(I18n.format(activity, "Could not write to Download/{0}{1}\n\nPlease allow storage access and try again.",
+                                    "Download/{0} dosyasına yazılamadı{1}\n\nLütfen depolama erişimine izin verip tekrar deneyin.", SETTINGS_BACKUP_FILENAME, (finalErr != null ? "\n\n" + finalErr : "")))
                             .setPositiveButton(I18n.s(activity, "Grant Storage Access…", "Depolama İzni Ver…"), (d, w) -> {
                                 if (Build.VERSION.SDK_INT >= 30) {
                                     try {
@@ -2615,9 +2613,8 @@ public final class CustomMedia {
             File dl = resolveDownloadFolder();
             File defaultBackup = new File(dl, SETTINGS_BACKUP_FILENAME);
             if (defaultBackup.exists() && defaultBackup.isFile()) {
-                labels.add("⚡  " + I18n.s(activity,
-                        "Restore from Download/" + SETTINGS_BACKUP_FILENAME,
-                        "Download/" + SETTINGS_BACKUP_FILENAME + " dosyasından geri yükle"));
+                labels.add("⚡  " + I18n.format(activity, "Restore from Download/{0}",
+                        "Download/{0} dosyasından geri yükle", SETTINGS_BACKUP_FILENAME));
                 actions.add(() -> restoreSettingsFromFile(activity, defaultBackup, onRestored));
             }
             Map<String, File> roots = getStorageRoots();
@@ -2644,9 +2641,8 @@ public final class CustomMedia {
         } else {
             File defaultInFolder = new File(currentDir, SETTINGS_BACKUP_FILENAME);
             if (defaultInFolder.exists() && defaultInFolder.isFile()) {
-                labels.add("✓  " + I18n.s(activity,
-                        "Restore from this folder (" + SETTINGS_BACKUP_FILENAME + ")",
-                        "Bu klasörden geri yükle (" + SETTINGS_BACKUP_FILENAME + ")"));
+                labels.add("✓  " + I18n.format(activity, "Restore from this folder ({0})",
+                        "Bu klasörden geri yükle ({0})", SETTINGS_BACKUP_FILENAME));
                 actions.add(() -> restoreSettingsFromFile(activity, defaultInFolder, onRestored));
             }
 
@@ -2736,20 +2732,16 @@ public final class CustomMedia {
                     if (onRestored != null) onRestored.run();
                     new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                             .setTitle(I18n.s(activity, "Settings Restored", "Ayarlar Geri Yüklendi"))
-                            .setMessage(I18n.s(activity,
-                                    "Settings were successfully restored from:\n" + file.getAbsolutePath(),
-                                    "Ayarlar şu dosyadan başarıyla geri yüklendi:\n" + file.getAbsolutePath()))
+                            .setMessage(I18n.format(activity, "Settings were successfully restored from:\n{0}",
+                                    "Ayarlar şu dosyadan başarıyla geri yüklendi:\n{0}", file.getAbsolutePath()))
                             .setPositiveButton(I18n.s(activity, "OK", "Tamam"), (d, w) -> activity.recreate())
                             .setOnCancelListener(d -> activity.recreate())
                             .show();
                 } else {
                     new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                             .setTitle(I18n.s(activity, "Restore Failed", "Geri Yükleme Başarısız"))
-                            .setMessage(I18n.s(activity,
-                                    "Could not restore settings from:\n" + file.getAbsolutePath()
-                                            + (finalErr != null ? "\n\n" + finalErr : ""),
-                                    "Ayarlar şu dosyadan geri yüklenemedi:\n" + file.getAbsolutePath()
-                                            + (finalErr != null ? "\n\n" + finalErr : "")))
+                            .setMessage(I18n.format(activity, "Could not restore settings from:\n{0}{1}",
+                                    "Ayarlar şu dosyadan geri yüklenemedi:\n{0}{1}", file.getAbsolutePath(), (finalErr != null ? "\n\n" + finalErr : "")))
                             .setPositiveButton(I18n.s(activity, "OK", "Tamam"), null)
                             .show();
                 }

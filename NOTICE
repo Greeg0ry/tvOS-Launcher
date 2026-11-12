@@ -14,3 +14,7 @@ This product includes third-party components under their own licences:
   (assets/fonts/Inter-LICENSE.txt)
 - QR Code generator library (Java) — Copyright (c) Project Nayuki — MIT License
   (src/io/nayuki/qrcodegen)
+
+Russian-language fork: Greeg0ry/tvOS-Launcher, November 2026.
+Changes include Russian UI, fork updates, Android 11 permissions,
+package-operation reporting, build scripts and installation documentation.

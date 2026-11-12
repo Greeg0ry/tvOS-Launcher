@@ -775,7 +775,8 @@ public final class ButtonMapper {
                         removeMapping(a, keyCode);
                         if (onChanged != null) onChanged.run();
                         Toast.makeText(a,
-                                I18n.s(a, "Removed remap for " + keyName + ".", keyName + " eşlemesi kaldırıldı."),
+                                I18n.format(a, "Removed remap for {0}.",
+                                        "{0} eşlemesi kaldırıldı.", keyName),
                                 Toast.LENGTH_SHORT).show();
                     }
                 })

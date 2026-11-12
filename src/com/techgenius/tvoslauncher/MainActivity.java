@@ -3149,7 +3149,8 @@ public class MainActivity extends Activity {
         } catch (ActivityNotFoundException | SecurityException e) {
             clearLaunchDim();
             if (Scenes.isScenesLook(this) && sceneHome != null) sceneHome.sceneView.start();
-            toast(I18n.s(this, "Can't open " + a.label, a.label + " açılamıyor"));
+            toast(I18n.format(this, "Can't open {0}",
+                    "{0} açılamıyor", a.label));
         }
     }
 
@@ -3957,8 +3958,10 @@ public class MainActivity extends Activity {
             focusIndex(Math.min(i, Math.max(0, shown.size() - 1)));
         }
         toast(toOther
-                ? I18n.s(this, a.label + " moved to Other Apps", a.label + " Diğer Uygulamalar'a taşındı")
-                : I18n.s(this, a.label + " is back on Home", a.label + " Ana Ekran'a geri döndü"));
+                ? I18n.format(this, "{0} moved to Other Apps",
+                        "{0} Diğer Uygulamalar'a taşındı", a.label)
+                : I18n.format(this, "{0} is back on Home",
+                        "{0} Ana Ekran'a geri döndü", a.label));
     }
 
     void ensureInFirstDockRow(String key) {
@@ -4007,9 +4010,10 @@ public class MainActivity extends Activity {
             focusIndex(Math.min(i, Math.max(0, shown.size() - 1)));
         }
         toast(hide
-                ? I18n.s(this, a.label + " hidden (Settings > Apps > Hidden apps)",
-                        a.label + " gizlendi (Ayarlar > Uygulamalar > Gizlenen uygulamalar)")
-                : I18n.s(this, a.label + " is back on Home", a.label + " Ana Ekran'a geri döndü"));
+                ? I18n.format(this, "{0} hidden (Settings > Apps > Hidden apps)",
+                        "{0} gizlendi (Ayarlar > Uygulamalar > Gizlenen uygulamalar)", a.label)
+                : I18n.format(this, "{0} is back on Home",
+                        "{0} Ana Ekran'a geri döndü", a.label));
     }
 
     void registerPackageReceiver() {
@@ -4448,9 +4452,8 @@ public class MainActivity extends Activity {
             getSharedPreferences("clean", MODE_PRIVATE).edit().remove("recent").apply();
             long freed = Math.max(0, availMem(am) - before) / (1024 * 1024);
             updateMemoryBar();
-            toast(I18n.s(this,
-                    "Closed " + apps.size() + (apps.size() == 1 ? " app" : " apps") + (freed > 0 ? " \u00b7 freed " + freed + " MB" : ""),
-                    apps.size() + " uygulama kapatıldı" + (freed > 0 ? " \u00b7 " + freed + " MB boşaltıldı" : "")));
+            toast(I18n.format(this, "Closed apps: {0}", "Kapatılan uygulamalar: {0}", apps.size())
+                    + (freed > 0 ? I18n.format(this, " · freed {0} MB", " · {0} MB boşaltıldı", freed) : ""));
         };
         if (PowerService.instance != null) {
             closeProfilePicker();
@@ -4566,7 +4569,8 @@ public class MainActivity extends Activity {
             cells.add(ccTile(panel, x, y, col, cap, Inputs.glyph(in), in.label,
                     in.disconnected ? () -> I18n.s(this, "Not connected", "Bağlı değil") : null, false, v -> {
                         closeProfilePicker();
-                        if (!Inputs.open(this, in)) toast(I18n.s(this, "Can't switch to " + in.label, in.label + " girişine geçilemiyor"));
+                        if (!Inputs.open(this, in)) toast(I18n.format(this, "Can't switch to {0}",
+                                "{0} girişine geçilemiyor", in.label));
                     }));
         }
         int rows = (list.size() + 1) / 2;
@@ -5586,11 +5590,11 @@ public class MainActivity extends Activity {
             String[] items = new String[free.size()];
             int cur = -1;
             for (int i = 0; i < free.size(); i++) {
-                items[i] = free.get(i) + "   " + Profiles.emojiName(free.get(i));
+                items[i] = free.get(i) + "   " + I18n.t(this, Profiles.emojiName(free.get(i)));
                 if (free.get(i).equals(prof.emoji)) cur = i;
             }
             new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle("Emoji")
+                    .setTitle(I18n.t(this, "Emoji"))
                     .setSingleChoiceItems(items, cur, (d, w) -> {
                         prof.emoji = free.get(w);
                         Profiles.update(this, prof);
@@ -5602,7 +5606,7 @@ public class MainActivity extends Activity {
         l.add(I18n.s(this, "Change Colour", "Rengi Değiştir"));
         act.add(() -> new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(I18n.s(this, "Colour", "Renk"))
-                .setSingleChoiceItems(Profiles.COLOR_NAMES, prof.color, (d, w) -> {
+                .setSingleChoiceItems(java.util.Arrays.stream(Profiles.COLOR_NAMES).map(name -> I18n.t(this, name)).toArray(String[]::new), prof.color, (d, w) -> {
                     prof.color = w;
                     Profiles.update(this, prof);
                     refreshAvatar();
@@ -5614,7 +5618,8 @@ public class MainActivity extends Activity {
             del = l.size();
             l.add(I18n.s(this, "Delete", "Sil"));
             act.add(() -> new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle(I18n.s(this, "Delete \u201C" + prof.name + "\u201D?", "\u201C" + prof.name + "\u201D silinsin mi?"))
+                    .setTitle(I18n.format(this, "Delete “{0}”?",
+                            "“{0}” silinsin mi?", prof.name))
                     .setMessage(I18n.s(this, "Its layout and Continue Watching list will be removed.", "Düzeni ve İzlemeye Devam Et listesi kaldırılacak."))
                     .setPositiveButton(I18n.s(this, "Delete", "Sil"), (d, w) -> {
                         boolean wasCurrent = Profiles.current(this).id.equals(prof.id);

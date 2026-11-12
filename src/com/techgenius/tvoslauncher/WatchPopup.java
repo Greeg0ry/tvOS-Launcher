@@ -467,7 +467,8 @@ final class WatchPopup {
         String cw = I18n.s(host, "Continue watching", "İzlemeye devam et");
         if (!cloud.isSignedIn()) {
             // Turkish: both "Nuvio" and "Stremio" end in a back vowel, so "'ya" fits each.
-            addHeader(I18n.s(host, "Sign in to " + cloud.name(), cloud.name() + "'ya giriş yap"), 0);
+            addHeader(I18n.format(host, "Sign in to {0}",
+                    "{0}'ya giriş yap", cloud.name()), 0);
             renderLogin();
         } else if (items != null && !items.isEmpty()) {
             renderItems(cw);
@@ -475,7 +476,8 @@ final class WatchPopup {
             renderGhosts(cw);  // this profile's row hasn't loaded yet
         } else {
             addHeader(cw, 0);
-            String msg = items == null ? I18n.s(host, "Couldn't reach " + cloud.name(), cloud.name() + "'ya ulaşılamadı")
+            String msg = items == null ? I18n.format(host, "Couldn't reach {0}",
+                    "{0}'ya ulaşılamadı", cloud.name())
                     : I18n.s(host, "Nothing to continue yet", "Devam edecek bir şey yok");
             LinearLayout box = glassBox();
             box.addView(label(msg, 11.5f, 0xB8F4F4F6, "regular"));
@@ -533,8 +535,8 @@ final class WatchPopup {
     private void renderLogin() {
         LinearLayout box = glassBox();
         if (qr == null || qrBitmap == null) {
-            box.addView(label(qrFailed ? I18n.s(host, "Couldn't reach " + cloud.name() + ". Focus the tile again to retry.",
-                            cloud.name() + "'ya ulaşılamadı. Tekrar denemek için simgeye yeniden gel.")
+            box.addView(label(qrFailed ? I18n.format(host, "Couldn't reach {0}. Focus the tile again to retry.",
+                    "{0}'ya ulaşılamadı. Tekrar denemek için simgeye yeniden gel.", cloud.name())
                     : I18n.s(host, "Preparing QR code…", "QR kodu hazırlanıyor…"), 11.5f, 0xB8F4F4F6, "regular"));
             addStatusBox(box);
             return;

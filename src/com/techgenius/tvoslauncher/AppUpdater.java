@@ -31,14 +31,14 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Checks GitHub Releases (https://api.github.com/repos/techgenius1/tvOS-Launcher/releases/latest)
+ * Checks this fork's GitHub Releases.
  * and downloads/installs the latest APK either automatically or manually from Settings -> Updates.
  */
 public final class AppUpdater {
     public static final String GITHUB_API_LATEST =
-            "https://api.github.com/repos/techgenius1/tvOS-Launcher/releases/latest";
+            "https://api.github.com/repos/Greeg0ry/tvOS-Launcher/releases/latest";
     public static final String GITHUB_FALLBACK_APK =
-            "https://github.com/techgenius1/tvOS-Launcher/releases/latest/download/tvos-home.apk";
+            "https://github.com/Greeg0ry/tvOS-Launcher/releases/latest/download/tvos-home.apk";
 
     private static final String PREF_NAME = "updates";
     private static final String KEY_AUTO_UPDATE = "auto_update";
@@ -266,9 +266,8 @@ public final class AppUpdater {
                         onUiRefresh);
             } else {
                 Toast.makeText(activity,
-                        I18n.s(activity,
-                                "You are up to date (v" + cur + ")",
-                                "Sürümünüz güncel (v" + cur + ")"),
+                        I18n.format(activity, "You are up to date (v{0})",
+                                "Sürümünüz güncel (v{0})", cur),
                         Toast.LENGTH_SHORT).show();
             }
         });
@@ -333,13 +332,8 @@ public final class AppUpdater {
                 : I18n.s(activity,
                         "ADB is turned off (Secure Mode) — selecting Install will download the update and open the system package installer.",
                         "ADB kapalı (Güvenli Mod) — Yükle'yi seçtiğinizde güncelleme indirilecek ve sistem paket yükleyicisi açılacaktır.");
-        msgTv.setText(I18n.s(activity,
-                "A new version of tvOS Launcher is available on GitHub.\n"
-                        + "Current version: v" + cur + "  →  New version: v" + latestVersion + "\n\n"
-                        + modeNote,
-                "GitHub'da yeni bir tvOS Launcher sürümü mevcut.\n"
-                        + "Mevcut sürüm: v" + cur + "  →  Yeni sürüm: v" + latestVersion + "\n\n"
-                        + modeNote));
+        msgTv.setText(I18n.format(activity, "A new version of tvOS Launcher is available on GitHub.\nCurrent version: v{0}  →  New version: v{1}\n\n{2}",
+                "GitHub'da yeni bir tvOS Launcher sürümü mevcut.\nMevcut sürüm: v{0}  →  Yeni sürüm: v{1}\n\n{2}", cur, latestVersion, modeNote));
         msgTv.setTextColor(0xCCFFFFFF);
         msgTv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
         msgTv.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL));
@@ -428,7 +422,8 @@ public final class AppUpdater {
         card.setBackground(cardBg);
 
         android.widget.TextView titleTv = new android.widget.TextView(activity);
-        titleTv.setText(I18n.s(activity, "Changelog — v" + latestVersion, "Değişiklik Günlüğü — v" + latestVersion));
+        titleTv.setText(I18n.format(activity, "Changelog — v{0}",
+                "Değişiklik Günlüğü — v{0}", latestVersion));
         titleTv.setTextColor(0xFFFFFFFF);
         titleTv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 19);
         titleTv.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
@@ -558,7 +553,8 @@ public final class AppUpdater {
         final Context appCtx = activity.getApplicationContext();
 
         Toast.makeText(activity,
-                I18n.s(activity, "Downloading update v" + version + "…", "Güncelleme indiriliyor v" + version + "…"),
+                I18n.format(activity, "Downloading update v{0}…",
+                        "Güncelleme indiriliyor v{0}…", version),
                 Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
@@ -611,9 +607,8 @@ public final class AppUpdater {
                 // 1. If ADB is currently active (port 5555 open), install automatically via LocalAdb
                 if (LocalAdb.isAdbPortCurrentlyOpen()) {
                     MAIN.post(() -> Toast.makeText(appCtx,
-                            I18n.s(appCtx,
-                                    "Installing update v" + version + " automatically via ADB…",
-                                    "v" + version + " güncellemesi ADB ile otomatik kuruluyor…"),
+                            I18n.format(appCtx, "Installing update v{0} automatically via ADB…",
+                                    "v{0} güncellemesi ADB ile otomatik kuruluyor…", version),
                             Toast.LENGTH_LONG).show());
                     if (LocalAdb.installApkViaAdb(appCtx, apkFile)) {
                         downloading = false;

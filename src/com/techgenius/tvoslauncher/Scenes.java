@@ -103,6 +103,9 @@ public final class Scenes {
         }
 
         public String title(Context c) {
+            if (nameEn.matches("Custom [0-9]+")) {
+                return I18n.format(c, "Custom {0}", "Özel {0}", nameEn.substring(7));
+            }
             return I18n.s(c, nameEn, nameTr);
         }
     }

@@ -1652,9 +1652,8 @@ final class SceneHome {
                 focusedDockIdx = index;
                 host.prefs.edit().putInt("last_dock_idx", index).apply();
                 if (moveDockIdx >= 0) {
-                    updateDockTooltip(v, I18n.s(host,
-                            "Move " + a.label + "  ·  Left/Right, OK when done",
-                            a.label + " taşınıyor  ·  Sol/Sağ, bitince OK"));
+                    updateDockTooltip(v, I18n.format(host, "Move {0}  ·  Left/Right, OK when done",
+                            "{0} taşınıyor  ·  Sol/Sağ, bitince OK", a.label));
                 } else {
                     updateDockTooltip(v, a.label);
                 }
@@ -1724,7 +1723,8 @@ final class SceneHome {
             }
             // Try opening Play Store or Settings if not installed on this device
             if (!Suggestions.start(host, a.launch)) {
-                host.toast(I18n.s(host, a.label + " is not installed on this TV", a.label + " bu TV'de yüklü değil"));
+                host.toast(I18n.format(host, "{0} is not installed on this TV",
+                        "{0} bu TV'de yüklü değil", a.label));
             }
             return;
         }
@@ -2356,7 +2356,8 @@ final class SceneHome {
         hSub.setTextColor(0xB3F4F4F6);
         int curLeft = SleepReceiver.timerLeft(host);
         hSub.setText(curLeft > 0
-                ? I18n.s(host, "Off in " + curLeft + " min", curLeft + " dk içinde kapanacak")
+                ? I18n.format(host, "Off in {0} min",
+                        "{0} dk içinde kapanacak", curLeft)
                 : I18n.s(host, "Turn the TV off after", "TV'yi şu süreden sonra kapat:"));
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);

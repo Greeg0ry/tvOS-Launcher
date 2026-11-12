@@ -1,81 +1,66 @@
-# Install and set up
+# Установка на X4Q Pro с Android 11
 
-## Requirements
+Это инструкция для первого испытания. На физической X4Q Pro сборка пока не проверена.
 
-- An Android TV box on Android 7.0+ (tested on a Xiaomi Mi Box, `MIBOX4`, Android 12).
-- Developer options and **network debugging** turned on (Settings → Device Preferences → About →
-  click *Build* seven times).
-- A computer with `adb` (Android SDK platform-tools) on the same network.
+## APK
 
-## Build
-
-```sh
-./build.sh                        # uses JDK 17 and Android build-tools 34
-VERSION_CODE=62 VERSION_NAME=6.9 ./build.sh
-```
-
-The script compiles resources (`aapt2`), Java (`javac`), dexes (`d8`), aligns and signs. Development
-builds use a local debug key; official releases are signed by the maintainers with a private key.
-Android only installs updates signed with the same key, so switching between a release and a
-development build needs an uninstall first.
-
-## Install and make it the home screen
+Скачайте `tvos-home.apk` из [релизов форка](https://github.com/Greeg0ry/tvOS-Launcher/releases).
+Откройте APK файловым менеджером на приставке и разрешите этому файловому менеджеру установку
+из неизвестных источников. Либо установите через ADB с компьютера в той же сети:
 
 ```sh
-TV=192.168.1.13:5555
-adb connect $TV
-adb -s $TV install -r build/tvos-home.apk
-
-# Android TV keeps its own launcher in front unless it is disabled:
-adb -s $TV shell pm disable-user --user 0 com.google.android.tvlauncher
-adb -s $TV shell pm set-home-activity com.techgenius.tvoslauncher/.MainActivity
+adb connect IP_ПРИСТАВКИ:5555
+adb install -r tvos-home.apk
+adb shell am start -n com.techgenius.tvoslauncher/.MainActivity --es lang ru
 ```
 
-Press Home on the remote — tvOS Launcher opens.
+Для сетевого ADB в прошивке должна быть включена отладка по сети; одной отладки по USB
+может оказаться недостаточно. Адрес и порт зависят от прошивки. Автонастройка лаунчера
+использует локальный ADB на порту 5555 и не заменяет системное включение сетевой отладки.
 
-## One-time permissions
+У оригинала и форка один пакет `com.techgenius.tvoslauncher`, но разные подписи.
+Если оригинал уже установлен, сохраните нужные настройки, удалите его и установите форк.
+Удаление приложения удаляет его внутренние данные, включая собственные значки и обои:
+JSON-копия настроек не содержит сами изображения. Обновления форка устанавливаются поверх
+при сохранении того же ключа подписи. Ключ этой локальной сборки — `debug.keystore`;
+он исключён из Git, его нужно сохранить для следующих выпусков.
 
-tvOS Launcher asks for these **on screen** (setup's last page and Settings → Permissions): Android's prompts,
-the system's own settings screens, or tvOS Launcher's accessibility switch. The commands below are only a
-last resort for TVs that have no such screen.
+## Первый запуск
 
-| Feature | Command |
-|---|---|
-| Continue Watching + Do Not Disturb | `adb shell cmd notification allow_listener com.techgenius.tvoslauncher/com.techgenius.tvoslauncher.MediaWatchService` |
-| Power Off + Sleep Timer | `adb shell dpm set-active-admin com.techgenius.tvoslauncher/.SleepReceiver\$Admin` |
-| Wi-Fi name in Control Center | `adb shell pm grant com.techgenius.tvoslauncher android.permission.ACCESS_FINE_LOCATION` |
-| Search dictation (microphone) | `adb shell pm grant com.techgenius.tvoslauncher android.permission.RECORD_AUDIO` — not normally needed: without it, Search uses the TV's own voice prompt |
+1. Выберите русский язык и завершите настройку. Для проверки главного экрана можно выбрать
+   ручную настройку и выдать дополнительные разрешения позднее.
+2. Сохраните компонент текущего главного экрана, если используете ADB:
 
-## Optional: recommendation source
+   ```sh
+   adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME
+   ```
 
-Recommendations use JustWatch by default (no setup). **Settings → Top Shelf → Source** also offers
-**Stremio** (Cinemeta's popular movies and series, no setup; titles open in the Stremio app, or in
-Nuvio when only Nuvio is installed) and **TMDB**. For TMDB, enter a free API key from themoviedb.org (Settings → API). The short v3 *API Key* is
-easiest to type with a remote. It can also be set from a computer:
+3. Выберите tvOS Launcher главным экраном через системные настройки. При необходимости:
+
+   ```sh
+   adb shell cmd package set-home-activity --user 0 com.techgenius.tvoslauncher/.MainActivity
+   ```
+
+4. Оставьте штатный лаунчер включённым. Проверьте Home из другого приложения, навигацию,
+   удержание OK, громкость, возврат после сна и загрузку после перезапуска приставки.
+5. Для панели поверх приложений и переназначения кнопок включите службу tvOS Launcher
+   в специальных возможностях. Для истории просмотра включите доступ к уведомлениям.
+6. Для выбора папки обоев с USB и восстановления JSON на Android 11 при необходимости
+   разрешите приложению «Доступ ко всем файлам». Для разового выбора изображения
+   можно воспользоваться системным выбором файла.
+
+На Android 11 разрешение `WRITE_EXTERNAL_STORAGE` не даёт произвольного доступа к накопителю;
+`requestLegacyExternalStorage` для target SDK 34 также не отменяет ограничения.
+См. [документацию Android](https://developer.android.com/about/versions/11/privacy/storage) и
+[доступ ко всем файлам](https://developer.android.com/training/data-storage/manage-all-files).
+
+## Возврат штатного главного экрана
+
+Выберите штатное приложение в системных настройках либо подставьте сохранённый компонент:
 
 ```sh
-adb shell am start -n com.techgenius.tvoslauncher/.SettingsActivity --es tmdb_token <token>
+adb shell cmd package set-home-activity --user 0 ПАКЕТ_ШТАТНОГО_ЛАУНЧЕРА/АКТИВНОСТЬ
 ```
 
-## Optional: AirPlay receiver
-
-To AirPlay from a Mac, iPhone or iPad to the TV, install the open-source
-[AirPlay Server](https://github.com/jqssun/android-airplay-server) app (GPL-3.0; a separate app, not
-part of tvOS Launcher). Download `app-release.apk` from its
-[latest release](https://github.com/jqssun/android-airplay-server/releases/latest) and install it:
-
-```sh
-adb install -r app-release.apk
-```
-
-Open it once from tvOS Launcher, set a name (e.g. "Mi Box") in its Settings and keep *Start on boot* on. The
-TV then appears in AirPlay on Apple devices on the same Wi-Fi. tvOS Launcher's AirPlay guard keeps it visible
-after the TV sleeps ([features](features.md#airplay-with-the-airplay-server-app)). Tested with
-version 0.0.36 on a Mi Box (Android 12) and an Android 9 TV.
-
-## Undo
-
-```sh
-adb shell pm enable com.google.android.tvlauncher     # bring back the stock launcher
-adb uninstall com.techgenius.tvoslauncher
-```
+Проверьте Home, затем при необходимости удалите форк. В этой инструкции штатные пакеты
+не отключаются: угадывать их названия для конкретной прошивки X4Q Pro не требуется.

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="power_service_desc">Lets tvOS Launcher by techgenius remap remote buttons, open the Control Panel overlay over any app, put the TV to sleep (Power Off, Sleep Timer), and close background apps.</string>
+    <string name="power_service_label">tvOS Launcher – Button Mapper &amp; Control Panel</string>
+    <string name="media_watch_service_label">tvOS Launcher – Continue Watching</string>
 </resources>

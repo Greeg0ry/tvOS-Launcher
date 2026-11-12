@@ -197,10 +197,10 @@ public final class HomeDashboard {
         return "US";
     }
 
-    public static String getCountryDisplayName(String code) {
+    public static String getCountryDisplayName(Context c, String code) {
         if (code == null) return "";
         for (String[] row : RELEASES_COUNTRIES) {
-            if (row[0].equalsIgnoreCase(code)) return row[1];
+            if (row[0].equalsIgnoreCase(code)) return new Locale("", row[0]).getDisplayCountry(I18n.locale(c));
         }
         return code.toUpperCase(Locale.US);
     }
@@ -295,7 +295,7 @@ public final class HomeDashboard {
         }
         List<String> codes = getEffectiveReleasesCountries(c);
         if (codes.size() == 1) {
-            return getCountryDisplayName(codes.get(0));
+            return getCountryDisplayName(c, codes.get(0));
         }
         return TextUtils.join(", ", codes);
     }
@@ -418,9 +418,9 @@ public final class HomeDashboard {
     public static String getPrayerMethodName(Context c) {
         int m = getPrayerMethod(c);
         for (int i = 0; i < PRAYER_METHOD_IDS.length; i++) {
-            if (PRAYER_METHOD_IDS[i] == m) return PRAYER_METHOD_NAMES[i];
+            if (PRAYER_METHOD_IDS[i] == m) return I18n.t(c, PRAYER_METHOD_NAMES[i]);
         }
-        return PRAYER_METHOD_NAMES[0];
+        return I18n.t(c, PRAYER_METHOD_NAMES[0]);
     }
 
     public interface PrayerCallback {
@@ -1543,8 +1543,8 @@ public final class HomeDashboard {
                             + Weather.formatTemp(host, tm.max) + " / " + Weather.formatTemp(host, tm.min));
                 } else if (w.days != null && !w.days.isEmpty() && w.days.get(0) != null) {
                     Weather.Day td = w.days.get(0);
-                    forecastSummaryTv.setText("H: " + Weather.formatTemp(host, td.max)
-                            + "  L: " + Weather.formatTemp(host, td.min));
+                    forecastSummaryTv.setText(I18n.t(host, "H:") + " " + Weather.formatTemp(host, td.max)
+                            + "  " + I18n.t(host, "L:") + " " + Weather.formatTemp(host, td.min));
                 }
             }
         };

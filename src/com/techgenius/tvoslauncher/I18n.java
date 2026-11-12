@@ -58,6 +58,7 @@ public final class I18n {
     ));
 
     private static String cachedLang;
+    private static final java.util.regex.Pattern PLACEHOLDER = java.util.regex.Pattern.compile("\\{(\\d+)\\}");
     private static final Map<String, String> EN_MAP = new HashMap<>();
     private static final Map<String, String> TR_MAP = new HashMap<>();
     private static final Map<String, Map<String, String>> LANG_MAPS = new HashMap<>();
@@ -218,6 +219,7 @@ public final class I18n {
         initSwedish();
         initKorean();
         initAzerbaijani();
+        RussianTranslations.addTo(LANG_MAPS.get(LANG_RU));
     }
 
     private static void add(String en, String hi, String es, String fr, String de, String it, String ru, String pt, String ar, String ja, String zh) {
@@ -577,7 +579,7 @@ public final class I18n {
         // Custom Wallpaper, Clock Position, App Icon Changer & Updates
         add("Custom", "कस्टम", "Personalizado", "Personnalisé", "Benutzerdefiniert", "Personalizzato", "Свой", "Personalizado", "مخصص", "カスタム", "自定义");
         add("Clock position", "घड़ी की स्थिति", "Posición del reloj", "Position de l'horloge", "Uhrposition", "Posizione orologio", "Позиция часов", "Posição do relógio", "موضع الساعة", "時計の位置", "时钟位置");
-        add("Left", "बाएं", "Izquierda", "Gauche", "Links", "Sinistra", "Слеवा", "Esquerda", "يسار", "左", "居左");
+        add("Left", "बाएं", "Izquierda", "Gauche", "Links", "Sinistra", "Слева", "Esquerda", "يسار", "左", "居左");
         add("Center", "बीच में", "Centro", "Centre", "Mitte", "Centro", "По центру", "Centro", "وسط", "中央", "居中");
         add("Right", "दाएं", "Derecha", "Droite", "Rechts", "Destra", "Справа", "Direita", "يمين", "右", "居右");
         add("Clock font", "घड़ी का फ़ॉन्ट", "Fuente del reloj", "Police de l'horloge", "Uhr-Schriftart", "Carattere orologio", "Шрифт часов", "Tipo de letra do relógio", "خط الساعة", "時計のフォント", "时钟字体");
@@ -1600,6 +1602,20 @@ public final class I18n {
         return translateOther(lang, en);
     }
 
+    /** Localize the whole message before inserting names, versions and other values. */
+    public static String format(Context c, String en, String tr, Object... values) {
+        String template = s(c, en, tr);
+        java.util.regex.Matcher matcher = PLACEHOLDER.matcher(template);
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            int index = Integer.parseInt(matcher.group(1));
+            String value = index < values.length ? String.valueOf(values[index]) : matcher.group();
+            matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(value));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
     /** Translates a key using the active language dictionary. */
     public static String t(Context c, String enKey) {
         if (enKey == null) return "";
@@ -1640,6 +1656,7 @@ public final class I18n {
         }
         if (en.endsWith(" min left")) {
             String num = en.substring(0, en.length() - " min left".length());
+            if (LANG_RU.equals(lang)) return "Осталось " + num + " мин.";
             return num + " min";
         }
         if (en.startsWith("Move ") && map != null) {
@@ -1695,6 +1712,16 @@ public final class I18n {
     /** Translates default profile names ("Person 1", "Default", "Kids") while preserving custom names. */
     public static String profileName(Context c, String name) {
         if (name == null) return "";
+        if (LANG_RU.equals(getLang(c))) {
+            if (name.equals("Default") || name.equals("Varsayılan")) return "Основной";
+            if (name.equals("Kids")) return "Детский";
+            for (String prefix : new String[]{"Person ", "Profile ", "Kişi ", "Profil "}) {
+                if (name.startsWith(prefix) && name.substring(prefix.length()).matches("[1-3]")) {
+                    return "Профиль " + name.substring(prefix.length());
+                }
+            }
+            return name;
+        }
         if (isTr(c)) {
             if (name.equals("Default")) return "Varsayılan";
             if (name.startsWith("Person ")) return "Kişi " + name.substring("Person ".length());
