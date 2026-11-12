@@ -79,9 +79,6 @@ final class SceneHome {
     android.widget.HorizontalScrollView shelfScroll;
     LinearLayout shelfRow;
     final List<View> shelfCards = new ArrayList<>();
-    FrameLayout dashboardBox;
-    final List<View> dashboardCards = new ArrayList<>();
-    private boolean dashboardHiding;
     static final int MAX_SHELF_ITEMS = 5;
     private final Map<String, List<WatchCardData>> pkgWatchCache = new java.util.concurrent.ConcurrentHashMap<>();
     private final android.util.LruCache<String, Bitmap> shelfThumbs = new android.util.LruCache<>(32);
@@ -150,7 +147,6 @@ final class SceneHome {
 
         buildTopBar();
         buildKeepWatchingShelf();
-        buildDashboardBox();
         buildBottomDock();
         nuvioCloud = new NuvioCloud(host);
         stremioCloud = new StremioCloud(host);
@@ -204,7 +200,6 @@ final class SceneHome {
         if (moonBtn != null) moonBtn.invalidate();
         if (dockBox != null) dockBox.invalidate();
         for (View c : shelfCards) c.invalidate();
-        for (View c : dashboardCards) c.invalidate();
         for (WatchPopup p : watchPopups) p.invalidateGlass();
     }
 
@@ -249,9 +244,6 @@ final class SceneHome {
                     .setDuration(180).setInterpolator(MainActivity.LIFT).start();
             if (has) {
                 hideShelf();
-                showDashboard();
-            } else {
-                overlay.post(this::syncDashboardIfFocusChanged);
             }
         });
         whoBar.setOnClickListener(v -> {
@@ -308,9 +300,6 @@ final class SceneHome {
                     .setDuration(180).setInterpolator(MainActivity.LIFT).start();
             if (has) {
                 hideShelf();
-                showDashboard();
-            } else {
-                overlay.post(this::syncDashboardIfFocusChanged);
             }
         });
         weatherBtn.setOnClickListener(v -> host.showWeather());
@@ -362,9 +351,6 @@ final class SceneHome {
                     .setDuration(180).setInterpolator(MainActivity.LIFT).start();
             if (has) {
                 hideShelf();
-                showDashboard();
-            } else {
-                overlay.post(this::syncDashboardIfFocusChanged);
             }
         });
         moonBtn.setOnClickListener(v -> host.showControlCenter());
@@ -495,162 +481,6 @@ final class SceneHome {
         overlay.addView(shelfBox, slp);
     }
 
-    private void buildDashboardBox() {
-        dashboardBox = new FrameLayout(host) {
-            @Override public boolean hasOverlappingRendering() { return false; }
-        };
-        dashboardBox.setClipChildren(false);
-        dashboardBox.setClipToPadding(false);
-        dashboardBox.setVisibility(View.GONE);
-        FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.START);
-        dlp.leftMargin = dp(SHELF_LEFT_DP);
-        dlp.rightMargin = dp(SHELF_LEFT_DP);
-        dlp.topMargin = dp(SHELF_TOP_DP - 4);
-        overlay.addView(dashboardBox, dlp);
-    }
-
-    boolean isDashboardShowing() {
-        return dashboardBox != null && dashboardBox.getVisibility() == View.VISIBLE && !dashboardHiding && !dashboardCards.isEmpty();
-    }
-
-    private boolean isAnyAppDockTileFocused() {
-        View f = host.getCurrentFocus();
-        if (f == null) return false;
-        int idx = dockTiles.indexOf(f);
-        if (idx < 0 || idx >= dockEntries.size()) return false;
-        MainActivity.AppEntry a = dockEntries.get(idx);
-        return a != null && !GEAR_KEY.equals(a.key) && !MORE_KEY.equals(a.key)
-                && a.pkg != null && !a.pkg.isEmpty();
-    }
-
-    void syncDashboardIfFocusChanged() {
-        if (!HomeDashboard.isEnabled(host) || moreExpanded || moveDockIdx >= 0 || sheetLayer != null) {
-            hideDashboard();
-            return;
-        }
-        View f = host.getCurrentFocus();
-        if (f != null && dashboardCards.contains(f)) {
-            return;
-        }
-        if ((isAnyAppDockTileFocused() && !HomeDashboard.isShowWhenNoCw(host)) || isShelfShowing() || isAnyPopupShowing()) {
-            hideDashboard();
-        } else {
-            showDashboard();
-        }
-    }
-
-    void refreshDashboard() {
-        if (!HomeDashboard.isEnabled(host)) {
-            hideDashboardImmediate();
-            return;
-        }
-        if (isDashboardShowing()) {
-            populateDashboard(true);
-        } else {
-            syncDashboardIfFocusChanged();
-        }
-    }
-
-    void showDashboard() {
-        if (dashboardBox == null || !HomeDashboard.isEnabled(host) || moreExpanded || moveDockIdx >= 0 || sheetLayer != null) {
-            hideDashboard();
-            return;
-        }
-        if (dashboardBox.getVisibility() == View.VISIBLE && !dashboardHiding && !dashboardCards.isEmpty()) {
-            return;
-        }
-        populateDashboard(false);
-    }
-
-    private void populateDashboard(boolean keepFocus) {
-        if (dashboardBox == null) return;
-        int focusedIdx = keepFocus ? dashboardCards.indexOf(host.getCurrentFocus()) : -1;
-        dashboardBox.removeAllViews();
-        dashboardCards.clear();
-        View row = HomeDashboard.buildDashboardView(host, host.glassSource, host.screenW, host.screenH, host.unit, dashboardCards);
-        if (row == null || dashboardCards.isEmpty()) {
-            hideDashboardImmediate();
-            return;
-        }
-        for (View card : dashboardCards) {
-            final View.OnFocusChangeListener prev = card.getOnFocusChangeListener();
-            card.setOnFocusChangeListener((v, has) -> {
-                if (prev != null) prev.onFocusChange(v, has);
-                if (!has) overlay.post(this::syncDashboardIfFocusChanged);
-            });
-        }
-        dashboardBox.addView(row, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        boolean wasVisible = dashboardBox.getVisibility() == View.VISIBLE && !dashboardHiding;
-        dashboardHiding = false;
-        dashboardBox.animate().cancel();
-        dashboardBox.setVisibility(View.VISIBLE);
-        if (wasVisible || cwAnimSuppressed()) {
-            dashboardBox.setAlpha(1f);
-            dashboardBox.setTranslationY(0f);
-        } else {
-            dashboardBox.setAlpha(0f);
-            dashboardBox.setTranslationY(dp(8));
-            dashboardBox.animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(180)
-                    .setInterpolator(MainActivity.LIFT)
-                    .withEndAction(null)
-                    .start();
-        }
-        if (focusedIdx >= 0 && !dashboardCards.isEmpty()) {
-            dashboardCards.get(Math.min(focusedIdx, dashboardCards.size() - 1)).requestFocus();
-        }
-    }
-
-    void hideDashboardImmediate() {
-        dashboardHiding = false;
-        dashboardCards.clear();
-        if (dashboardBox != null) {
-            dashboardBox.animate().cancel();
-            dashboardBox.removeAllViews();
-            dashboardBox.setAlpha(1f);
-            dashboardBox.setTranslationY(0f);
-            dashboardBox.setVisibility(View.GONE);
-        }
-    }
-
-    void hideDashboard() {
-        if (cwAnimSuppressed()) {
-            hideDashboardImmediate();
-            return;
-        }
-        if (dashboardBox == null || dashboardBox.getVisibility() != View.VISIBLE) {
-            dashboardHiding = false;
-            dashboardCards.clear();
-            if (dashboardBox != null) {
-                dashboardBox.removeAllViews();
-                dashboardBox.setVisibility(View.GONE);
-            }
-            return;
-        }
-        if (dashboardHiding) return;
-        dashboardHiding = true;
-        dashboardCards.clear();
-        dashboardBox.animate().cancel();
-        dashboardBox.animate()
-                .alpha(0f)
-                .translationY(dp(6))
-                .setDuration(130)
-                .withEndAction(() -> {
-                    if (dashboardHiding) {
-                        dashboardHiding = false;
-                        dashboardBox.removeAllViews();
-                        dashboardBox.setVisibility(View.GONE);
-                        dashboardBox.setTranslationY(0f);
-                    }
-                })
-                .start();
-    }
-
     void refreshKeepWatching() {
         if (shelfRow == null) return;
         shelfHeader.setText(I18n.t(host, "Continue watching"));
@@ -701,27 +531,20 @@ final class SceneHome {
         if (has) {
             if (isGear || isMore || a == null || a.pkg == null || a.pkg.isEmpty()) {
                 hideShelf();
-                showDashboard();
                 return;
             }
             if (moveDockIdx >= 0 || moreExpanded || (popup != null && popup.isShowing())) {
-                hideDashboard();
                 hideShelf();
                 return;
             }
             if (!host.cwEnabled()) {
                 hideShelf();
-                if (HomeDashboard.isShowWhenNoCw(host)) {
-                    showDashboard();
-                } else {
-                    hideDashboard();
-                }
+
                 return;
             }
             showShelfForPackage(tile, a.pkg);
         } else {
             overlay.post(this::hideShelfIfFocusLeft);
-            overlay.post(this::syncDashboardIfFocusChanged);
         }
     }
 
@@ -733,17 +556,10 @@ final class SceneHome {
         shelfHeader.setText(I18n.t(host, "Continue watching"));
         List<WatchCardData> cached = pkgWatchCache.get(pkg);
         if (cached != null && !cached.isEmpty()) {
-            hideDashboard();
             populateWatchRow(pkg, cached);
         } else if (cached != null) {
             animateShelfOut();
-            if (HomeDashboard.isShowWhenNoCw(host)) {
-                showDashboard();
-            } else {
-                hideDashboard();
-            }
-        } else if (!HomeDashboard.isShowWhenNoCw(host)) {
-            hideDashboard();
+
         }
         final int gen = ++shelfLoadGen;
         final String targetPkg = pkg;
@@ -928,12 +744,9 @@ final class SceneHome {
             if (wasFocusedInShelf) {
                 focusDock(focusedDockIdx);
             }
-            if (!moreExpanded && moveDockIdx < 0 && !isAnyPopupShowing() && HomeDashboard.isShowWhenNoCw(host)) {
-                showDashboard();
-            }
+
             return;
         }
-        hideDashboard();
         boolean wasVisible = shelfBox.getVisibility() == View.VISIBLE && !shelfHiding;
         StringBuilder sb = new StringBuilder(pkg).append("::");
         for (int i = 0; i < cards.size() && i < MAX_SHELF_ITEMS; i++) {
@@ -1677,7 +1490,7 @@ final class SceneHome {
                 return;
             }
             if (isGear) {
-                showGearSheet(v);
+                host.openLauncherSettings();
             } else if (isMore) {
                 toggleMoreApps();
             } else {
@@ -1735,7 +1548,6 @@ final class SceneHome {
         moreExpanded = !moreExpanded;
         if (moreExpanded) {
             hideShelf();
-            hideDashboard();
         }
         rebuildDock();
         focusDock(Math.min(focusedDockIdx, dockTiles.size() - 1));
@@ -1823,7 +1635,6 @@ final class SceneHome {
     private void startDockMove(int index) {
         moveDockIdx = index;
         hideShelf();
-        hideDashboard();
         focusDock(index);
         if (index >= 0 && index < dockTiles.size()) {
             startDockWiggle(dockTiles.get(index));
@@ -2145,184 +1956,7 @@ final class SceneHome {
         }
     }
 
-    // ---------------------------------------------------------------- Gear Popup & Sleep Sheet
-
-    void showGearSheet(View returnTo) {
-        closeSheet();
-        sheetReturnFocus = returnTo;
-        sheetLayer = new FrameLayout(host);
-        sheetLayer.setClickable(true);
-        sheetLayer.setClipChildren(false);
-        sheetLayer.setClipToPadding(false);
-        if (shelfBox != null && shelfBox.getVisibility() == View.VISIBLE) {
-            shelfBox.animate().alpha(0f).setDuration(150).start();
-        }
-        if (dashboardBox != null && dashboardBox.getVisibility() == View.VISIBLE) {
-            dashboardBox.animate().alpha(0f).setDuration(150).start();
-        }
-
-        LinearLayout card = new LinearLayout(host);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setClipChildren(true);
-        card.setClipToPadding(true);
-        int pad = dp(8);
-        card.setPadding(pad, pad, pad, pad);
-        MainActivity.LiquidGlass glass = new MainActivity.LiquidGlass(
-                dp(18), 0xBD1C181E, host.glassSource, host.screenW, host.screenH, host.unit);
-        glass.lens = dp(7);
-        card.setBackground(glass);
-
-        List<View> rows = new ArrayList<>();
-        View btnHomeSettings = makeGearOptionRow(
-                "sliders",
-                I18n.t(host, "Home settings"),
-                I18n.t(host, "Language, weather, scenes, apps and people"),
-                () -> {
-                    closeSheetImmediate();
-                    host.returningFromSettings = true;
-                    host.startActivity(new Intent(host, SettingsActivity.class));
-                });
-        card.addView(btnHomeSettings);
-        rows.add(btnHomeSettings);
-
-        View btnTvSettings = makeGearOptionRow(
-                "gear",
-                I18n.t(host, "TV settings"),
-                I18n.t(host, "Wi-Fi, picture, sound and the rest of the TV"),
-                () -> {
-                    closeSheetImmediate();
-                    host.startSafe(new Intent(Settings.ACTION_SETTINGS));
-                });
-        LinearLayout.LayoutParams tvlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tvlp.topMargin = dp(2);
-        card.addView(btnTvSettings, tvlp);
-        rows.add(btnTvSettings);
-
-        if (CustomMedia.isRedditWallpaperActiveOnCurrentLook(host)) {
-            View btnNextWall = makeGearOptionRow(
-                    "refresh",
-                    I18n.t(host, "Next wallpaper"),
-                    I18n.t(host, "Skip to the next Reddit wallpaper"),
-                    () -> {
-                        closeSheet();
-                        host.toast(I18n.t(host, "Loading next Reddit wallpaper…"));
-                        CustomMedia.skipToNextRedditWallpaperOnCurrentLook(host, () -> {
-                            if (Scenes.isScenesLook(host)) {
-                                sceneView.syncSettings();
-                            } else {
-                                host.setWallpaper(host.wallStyle);
-                            }
-                        });
-                    });
-            LinearLayout.LayoutParams nwlp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            nwlp.topMargin = dp(2);
-            card.addView(btnNextWall, nwlp);
-            rows.add(btnNextWall);
-        }
-
-        for (View r : rows) r.setId(View.generateViewId());
-        for (int i = 0; i < rows.size(); i++) {
-            View r = rows.get(i);
-            View up = rows.get((i - 1 + rows.size()) % rows.size());
-            View dn = rows.get((i + 1) % rows.size());
-            r.setNextFocusUpId(up.getId());
-            r.setNextFocusDownId(dn.getId());
-            r.setNextFocusLeftId(r.getId());
-            r.setNextFocusRightId(r.getId());
-        }
-
-        int popW = dp(330);
-        card.measure(View.MeasureSpec.makeMeasureSpec(popW, View.MeasureSpec.EXACTLY), View.MeasureSpec.UNSPECIFIED);
-        int popH = card.getMeasuredHeight();
-
-        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(popW, ViewGroup.LayoutParams.WRAP_CONTENT);
-        if (returnTo != null) {
-            int[] loc = new int[2];
-            returnTo.getLocationInWindow(loc);
-            int left = loc[0] + returnTo.getWidth() / 2 - popW / 2;
-            left = Math.max(dp(40), Math.min(host.screenW - popW - dp(40), left));
-            int top = loc[1] - popH - dp(18);
-            if (top < dp(30)) {
-                top = Math.min(host.screenH - popH - dp(30), loc[1] + returnTo.getHeight() + dp(14));
-            }
-            top = Math.max(dp(30), top);
-            clp.leftMargin = left;
-            clp.topMargin = top;
-        } else {
-            clp.gravity = Gravity.CENTER;
-        }
-        sheetLayer.addView(card, clp);
-        host.root.addView(sheetLayer, host.match());
-        sheetLayer.setAlpha(0f);
-        card.setScaleX(0.94f);
-        card.setScaleY(0.94f);
-        sheetLayer.animate().alpha(1f).setDuration(180).start();
-        card.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(MainActivity.LIFT).start();
-        btnHomeSettings.requestFocus();
-    }
-
-    private View makeGearOptionRow(String glyphName, String title, String sub, Runnable onClick) {
-        LinearLayout row = new LinearLayout(host);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(7), dp(7), dp(14), dp(7));
-        row.setFocusable(true);
-        row.setClickable(true);
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(12));
-        bg.setColor(Color.TRANSPARENT);
-        row.setBackground(bg);
-
-        FrameLayout iconBox = new FrameLayout(host);
-        int iconBoxSz = dp(28);
-        final float iconRad = iconBoxSz * 0.26f;
-        GradientDrawable ibg = new GradientDrawable();
-        ibg.setCornerRadius(iconRad);
-        ibg.setColor(0x1FFFFFFF);
-        iconBox.setBackground(ibg);
-        ImageView iconIv = new ImageView(host);
-        iconIv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        iconIv.setImageBitmap(Glyphs.get(glyphName, dp(16), 0xEBF4F4F6));
-        iconBox.addView(iconIv, new FrameLayout.LayoutParams(dp(16), dp(16), Gravity.CENTER));
-        LinearLayout.LayoutParams iblp = new LinearLayout.LayoutParams(iconBoxSz, iconBoxSz);
-        iblp.rightMargin = dp(10);
-        row.addView(iconBox, iblp);
-
-        LinearLayout texts = new LinearLayout(host);
-        texts.setOrientation(LinearLayout.VERTICAL);
-
-        TextView t = new TextView(host);
-        Ui.textSize(t, 13.5f);
-        t.setTypeface(Ui.font(host, "semibold"));
-        t.setTextColor(0xEBF4F4F6);
-        t.setText(title);
-        texts.addView(t);
-
-        TextView s = new TextView(host);
-        Ui.textSize(s, 9.5f);
-        s.setTypeface(Ui.font(host, "regular"));
-        s.setTextColor(0x9EF4F4F6);
-        s.setText(sub);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        slp.topMargin = dp(1);
-        texts.addView(s, slp);
-
-        row.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        row.setOnFocusChangeListener((v, has) -> {
-            bg.setColor(has ? Color.WHITE : Color.TRANSPARENT);
-            ibg.setColor(has ? 0x12000000 : 0x1FFFFFFF);
-            iconIv.setImageBitmap(Glyphs.get(glyphName, dp(16), has ? 0xFF111114 : 0xEBF4F4F6));
-            t.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
-            s.setTextColor(has ? 0x99000000 : 0x9EF4F4F6);
-        });
-        row.setOnClickListener(v -> onClick.run());
-        return row;
-    }
+    // ---------------------------------------------------------------- Sleep timer sheet
 
     void showSleepSheet() {
         closeSheet();
@@ -2481,10 +2115,7 @@ final class SceneHome {
             shelfBox.animate().cancel();
             shelfBox.setAlpha(1f);
         }
-        if (dashboardBox != null && dashboardBox.getVisibility() == View.VISIBLE) {
-            dashboardBox.animate().cancel();
-            dashboardBox.setAlpha(1f);
-        }
+
         l.animate().cancel();
         host.root.removeView(l);
     }
@@ -2496,9 +2127,7 @@ final class SceneHome {
         if (shelfBox != null && shelfBox.getVisibility() == View.VISIBLE) {
             shelfBox.animate().alpha(1f).setDuration(150).start();
         }
-        if (dashboardBox != null && dashboardBox.getVisibility() == View.VISIBLE) {
-            dashboardBox.animate().alpha(1f).setDuration(150).start();
-        }
+
         l.animate().alpha(0f).setDuration(150).withEndAction(() -> host.root.removeView(l)).start();
         if (sheetReturnFocus != null && sheetReturnFocus.isAttachedToWindow()) {
             sheetReturnFocus.requestFocus();
@@ -2607,9 +2236,7 @@ final class SceneHome {
             }
             if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
                 if (down) {
-                    if (isDashboardShowing() && !dashboardCards.isEmpty()) {
-                        dashboardCards.get(dashboardCards.size() - 1).requestFocus();
-                    } else if (shelfBox.getVisibility() == View.VISIBLE && !shelfCards.isEmpty()) {
+                    if (shelfBox.getVisibility() == View.VISIBLE && !shelfCards.isEmpty()) {
                         shelfCards.get(shelfCards.size() - 1).requestFocus();
                     } else {
                         focusDock(focusedDockIdx);
@@ -2618,27 +2245,6 @@ final class SceneHome {
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_UP) return true;
-        }
-
-        // Home Dashboard navigation
-        int dbIdx = dashboardCards.indexOf(f);
-        if (dbIdx >= 0) {
-            if (k == KeyEvent.KEYCODE_DPAD_LEFT) {
-                if (down && dbIdx > 0) dashboardCards.get(dbIdx - 1).requestFocus();
-                return true;
-            }
-            if (k == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                if (down && dbIdx + 1 < dashboardCards.size()) dashboardCards.get(dbIdx + 1).requestFocus();
-                return true;
-            }
-            if (k == KeyEvent.KEYCODE_DPAD_UP) {
-                if (down) moonBtn.requestFocus();
-                return true;
-            }
-            if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
-                if (down) focusDock(focusedDockIdx);
-                return true;
-            }
         }
 
         // Keep Watching Shelf navigation
@@ -2680,8 +2286,6 @@ final class SceneHome {
                         // Moved into the continue-watching popup above the tile.
                     } else if (dIdx >= cols) {
                         focusDock(dIdx - cols);
-                    } else if (isDashboardShowing() && !dashboardCards.isEmpty()) {
-                        dashboardCards.get(Math.min(dashboardCards.size() - 1, Math.max(0, (dIdx * dashboardCards.size()) / Math.max(1, dockTiles.size())))).requestFocus();
                     } else if (shelfBox.getVisibility() == View.VISIBLE && !shelfCards.isEmpty()) {
                         shelfCards.get(0).requestFocus();
                     } else {

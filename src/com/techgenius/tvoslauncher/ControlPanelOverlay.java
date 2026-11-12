@@ -298,7 +298,7 @@ public final class ControlPanelOverlay {
                 },
                 () -> {
                     dismiss();
-                    showSettingsGearPopupOverlay(svcCtx);
+                    openLauncherSettings(svcCtx);
                 },
                 () -> {
                     dismiss();
@@ -549,10 +549,12 @@ public final class ControlPanelOverlay {
         for (int sIdx = 0; sIdx < enabledSmallIdx.size(); sIdx++) {
             int i = enabledSmallIdx.get(sIdx);
             final Runnable act = actions[i];
-            outCells.add(makeTile(c, panel, pad + sIdx * (small + gap), pad + y4, small, small, unit, screenW, screenH, glassSource,
+            View shortcut = makeTile(c, panel, pad + sIdx * (small + gap), pad + y4, small, small, unit, screenW, screenH, glassSource,
                     icons[i], null, null, v -> {
                         if (act != null) act.run();
-                    }));
+                    });
+            shortcut.setContentDescription(getItemTitle(c, itemKeys[i]));
+            outCells.add(shortcut);
         }
 
         int totalH = !enabledSmallIdx.isEmpty()
@@ -1417,217 +1419,14 @@ public final class ControlPanelOverlay {
         if (defaultFallback != null) defaultFallback.run();
     }
 
-    // ---------------------------------------------------------------- Settings Gear Popup Overlay (Feature 8 & 10)
-
-    public static void showSettingsGearPopupOverlay(Context c) {
+    /** Settings always opens the launcher page; device settings lives inside it. */
+    public static void openLauncherSettings(Context c) {
+        dismiss();
         if (MainActivity.activeInstance != null && MainActivity.activeInstance.resumed) {
-            MainActivity.activeInstance.runOnUiThread(() -> MainActivity.activeInstance.showSettingsSheet());
-            return;
-        }
-        PowerService svc = PowerService.instance;
-        if (svc == null) {
+            MainActivity.activeInstance.runOnUiThread(() -> MainActivity.activeInstance.openLauncherSettings());
+        } else {
             startExternal(c, new Intent(c, SettingsActivity.class));
-            return;
         }
-        WindowManager wm = (WindowManager) svc.getSystemService(Context.WINDOW_SERVICE);
-        if (wm == null) {
-            startExternal(c, new Intent(c, SettingsActivity.class));
-            return;
-        }
-        final float u = Ui.unit(svc);
-        final FrameLayout[] rootRef = new FrameLayout[1];
-        final List<View> rows = new ArrayList<>();
-        final Runnable closeSheet = () -> {
-            if (rootRef[0] != null) {
-                try { wm.removeViewImmediate(rootRef[0]); } catch (Exception ignored) {}
-                rootRef[0] = null;
-            }
-        };
-
-        FrameLayout backdrop = new FrameLayout(svc) {
-            @Override
-            public boolean dispatchKeyEvent(KeyEvent ev) {
-                MainActivity.navSound(svc, ev);
-                if (ev.getKeyCode() == KeyEvent.KEYCODE_BACK || ev.getKeyCode() == KeyEvent.KEYCODE_ESCAPE) {
-                    if (ev.getAction() == KeyEvent.ACTION_UP) closeSheet.run();
-                    return true;
-                }
-                return super.dispatchKeyEvent(ev);
-            }
-        };
-        backdrop.setBackgroundColor(isBlurryBgMode(svc) ? 0x66000000 : 0x33000000);
-        backdrop.setClickable(true);
-        backdrop.setOnClickListener(v -> closeSheet.run());
-        rootRef[0] = backdrop;
-
-        LinearLayout card = new LinearLayout(svc);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setClipChildren(true);
-        card.setClipToPadding(true);
-        int pad = dp(u, 8);
-        card.setPadding(pad, pad, pad, pad);
-        GradientDrawable sbg = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                isBlurryBgMode(svc)
-                        ? new int[]{0xED242028, 0xE61A171E}
-                        : new int[]{0xC81C181E, 0xB816141A});
-        sbg.setCornerRadius(dp(u, 18));
-        sbg.setStroke(Math.max(1, dp(u, 1)), 0x38FFFFFF);
-        card.setBackground(sbg);
-
-        View btnHomeSettings = makeOverlayGearOptionRow(
-                svc,
-                u,
-                "sliders",
-                I18n.t(svc, "Home settings"),
-                I18n.t(svc, "Language, weather, scenes, apps and people"),
-                () -> {
-                    closeSheet.run();
-                    startExternal(svc, new Intent(svc, SettingsActivity.class));
-                });
-        card.addView(btnHomeSettings);
-        rows.add(btnHomeSettings);
-
-        View btnTvSettings = makeOverlayGearOptionRow(
-                svc,
-                u,
-                "gear",
-                I18n.t(svc, "TV settings"),
-                I18n.t(svc, "Wi-Fi, picture, sound and the rest of the TV"),
-                () -> {
-                    closeSheet.run();
-                    startExternal(svc, new Intent(Settings.ACTION_SETTINGS));
-                });
-        LinearLayout.LayoutParams tvlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tvlp.topMargin = dp(u, 2);
-        card.addView(btnTvSettings, tvlp);
-        rows.add(btnTvSettings);
-
-        if (CustomMedia.isRedditWallpaperActiveOnCurrentLook(svc)) {
-            View btnNextWall = makeOverlayGearOptionRow(
-                    svc,
-                    u,
-                    "refresh",
-                    I18n.t(svc, "Next wallpaper"),
-                    I18n.t(svc, "Skip to the next Reddit wallpaper"),
-                    () -> {
-                        closeSheet.run();
-                        Toast.makeText(svc,
-                                I18n.t(svc, "Loading next Reddit wallpaper…"),
-                                Toast.LENGTH_SHORT).show();
-                        CustomMedia.skipToNextRedditWallpaperOnCurrentLook(svc, null);
-                    });
-            LinearLayout.LayoutParams nwlp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            nwlp.topMargin = dp(u, 2);
-            card.addView(btnNextWall, nwlp);
-            rows.add(btnNextWall);
-        }
-
-        for (int i = 0; i < rows.size(); i++) {
-            final int idx = i;
-            View r = rows.get(i);
-            r.setOnKeyListener((v, kc, ev) -> {
-                if (ev.getAction() != KeyEvent.ACTION_DOWN) return false;
-                if (kc == KeyEvent.KEYCODE_DPAD_UP) {
-                    rows.get((idx - 1 + rows.size()) % rows.size()).requestFocus();
-                    return true;
-                }
-                if (kc == KeyEvent.KEYCODE_DPAD_DOWN) {
-                    rows.get((idx + 1) % rows.size()).requestFocus();
-                    return true;
-                }
-                return false;
-            });
-        }
-
-        FrameLayout.LayoutParams slp = new FrameLayout.LayoutParams(
-                dp(u, 330), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
-        backdrop.addView(card, slp);
-
-        int flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
-        if (isBlurryBgMode(svc) && android.os.Build.VERSION.SDK_INT >= 31) {
-            flags |= WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
-        }
-        WindowManager.LayoutParams wlp = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                flags,
-                PixelFormat.TRANSLUCENT);
-        if (isBlurryBgMode(svc) && android.os.Build.VERSION.SDK_INT >= 31) {
-            try { wlp.setBlurBehindRadius(dp(u, 32)); } catch (Throwable ignored) {}
-        }
-        wm.addView(backdrop, wlp);
-        backdrop.setAlpha(0f);
-        card.setScaleX(0.94f);
-        card.setScaleY(0.94f);
-        backdrop.animate().alpha(1f).setDuration(180).start();
-        card.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(MainActivity.LIFT).start();
-        btnHomeSettings.requestFocus();
-    }
-
-    private static View makeOverlayGearOptionRow(
-            Context c, float u, String glyphName, String title, String sub, Runnable onClick) {
-        LinearLayout row = new LinearLayout(c);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(u, 7), dp(u, 7), dp(u, 14), dp(u, 7));
-        row.setFocusable(true);
-        row.setClickable(true);
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(u, 12));
-        bg.setColor(Color.TRANSPARENT);
-        row.setBackground(bg);
-
-        FrameLayout iconBox = new FrameLayout(c);
-        int iconBoxSz = dp(u, 28);
-        final float iconRad = iconBoxSz * 0.26f;
-        GradientDrawable ibg = new GradientDrawable();
-        ibg.setCornerRadius(iconRad);
-        ibg.setColor(0x1FFFFFFF);
-        iconBox.setBackground(ibg);
-        ImageView iconIv = new ImageView(c);
-        iconIv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        iconIv.setImageBitmap(Glyphs.get(glyphName, dp(u, 16), 0xEBF4F4F6));
-        iconBox.addView(iconIv, new FrameLayout.LayoutParams(dp(u, 16), dp(u, 16), Gravity.CENTER));
-        LinearLayout.LayoutParams iblp = new LinearLayout.LayoutParams(iconBoxSz, iconBoxSz);
-        iblp.rightMargin = dp(u, 10);
-        row.addView(iconBox, iblp);
-
-        LinearLayout texts = new LinearLayout(c);
-        texts.setOrientation(LinearLayout.VERTICAL);
-
-        TextView t = new TextView(c);
-        Ui.textSize(t, 13.5f);
-        t.setTypeface(Ui.font(c, "semibold"));
-        t.setTextColor(0xEBF4F4F6);
-        t.setText(title);
-        texts.addView(t);
-
-        TextView s = new TextView(c);
-        Ui.textSize(s, 9.5f);
-        s.setTypeface(Ui.font(c, "regular"));
-        s.setTextColor(0x9EF4F4F6);
-        s.setText(sub);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        slp.topMargin = dp(u, 1);
-        texts.addView(s, slp);
-
-        row.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        row.setOnFocusChangeListener((v, has) -> {
-            bg.setColor(has ? Color.WHITE : Color.TRANSPARENT);
-            ibg.setColor(has ? 0x12000000 : 0x1FFFFFFF);
-            iconIv.setImageBitmap(Glyphs.get(glyphName, dp(u, 16), has ? 0xFF111114 : 0xEBF4F4F6));
-            t.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
-            s.setTextColor(has ? 0x99000000 : 0x9EF4F4F6);
-        });
-        row.setOnClickListener(v -> onClick.run());
-        return row;
     }
 
     // ---------------------------------------------------------------- System-Wide Input Panel Overlay (Feature 1 & 10)

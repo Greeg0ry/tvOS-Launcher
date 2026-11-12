@@ -65,6 +65,7 @@ public final class RecentAppsOverlay {
 
     private static WindowManager activeWm;
     private static FrameLayout activeRoot;
+    private static View returnFocus;
     private static HorizontalScrollView activeScroll;
     private static LinearLayout activeRow;
     private static TextView activeRamText;
@@ -129,6 +130,11 @@ public final class RecentAppsOverlay {
         return activeRoot != null;
     }
 
+    /** Give the modal first refusal when it shares MainActivity's window. */
+    public static boolean dispatchKeyEvent(KeyEvent event) {
+        return activeRoot != null && activeRoot.dispatchKeyEvent(event);
+    }
+
     public static void toggle(Context c) {
         if (isShowing()) {
             dismiss();
@@ -164,6 +170,8 @@ public final class RecentAppsOverlay {
     }
 
     public static void dismiss() {
+        View previousFocus = returnFocus;
+        returnFocus = null;
         MAIN.removeCallbacksAndMessages(null);
         if (scrollAnimator != null) {
             scrollAnimator.cancel();
@@ -191,6 +199,7 @@ public final class RecentAppsOverlay {
                 } catch (Exception ignored) { }
             }
         }
+        if (previousFocus != null && previousFocus.isAttachedToWindow()) previousFocus.requestFocus();
     }
 
     /** Records an app package as recently opened/used (newest first, up to 12 apps). */
@@ -406,11 +415,13 @@ public final class RecentAppsOverlay {
     public static void showInActivity(MainActivity act) {
         if (act == null || act.root == null) return;
         dismiss();
+        returnFocus = act.getCurrentFocus();
         FrameLayout layer = buildRecentsLayer(act, act.screenW, act.screenH, act.unit);
         act.root.addView(layer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         activeWm = null;
         activeRoot = layer;
+        layer.post(() -> { if (!layer.hasFocus()) layer.requestFocus(); });
         animateEntrance(act.unit);
     }
 
@@ -429,6 +440,9 @@ public final class RecentAppsOverlay {
             }
         };
         root.setClickable(true);
+        root.setFocusable(true);
+        root.setFocusableInTouchMode(true);
+        root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
         root.setClipChildren(false);
         root.setClipToPadding(false);
         root.setOnClickListener(v -> dismiss());

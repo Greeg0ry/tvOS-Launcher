@@ -34,6 +34,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.techgenius.tvoslauncher.Ui;
+import com.techgenius.tvoslauncher.LatestTask;
 
 import org.json.JSONObject;
 
@@ -65,6 +66,8 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     final Handler handler = new Handler(Looper.getMainLooper());
+    final java.util.concurrent.ExecutorService imageIo = java.util.concurrent.Executors.newSingleThreadExecutor();
+    final LatestTask<Bitmap> imageLoader = new LatestTask<>(imageIo, task -> handler.post(task), Bitmap::recycle);
     FrameLayout root;
     TextureView videoView;
     MediaPlayer mediaPlayer;
@@ -119,6 +122,8 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
     @Override
     protected void onDestroy() {
         Presenter.detach(this);
+        imageLoader.cancel();
+        imageIo.shutdown();
         handler.removeCallbacksAndMessages(null);
         releaseVideo();
         if (webView != null) webView.destroy();
@@ -453,7 +458,9 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
         Model.Slide s = slides.get(index);
         handler.removeCallbacks(nextRunnable);
         stopAutoScroll();
-        hideSurfaces();
+        imageLoader.cancel();
+        // Keep the previous frame visible until an image is decoded; a new media type replaces it immediately.
+        if (!Model.IMAGE.equals(s.type)) hideSurfaces();
         messageCard.setVisibility(View.GONE);
         emptyView.setVisibility(View.GONE);
         switch (s.type) {
@@ -469,12 +476,22 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
         if (m == null) return;
         imageView.setScaleType(Model.COVER.equals(s.fitMode) ? ImageView.ScaleType.CENTER_CROP
                 : Model.FILL.equals(s.fitMode) ? ImageView.ScaleType.FIT_XY : ImageView.ScaleType.FIT_CENTER);
-        Bitmap bm = decodeForScreen(Presenter.repo(this).file(m).getAbsolutePath());
-        if (bm != null) imageView.setImageBitmap(bm);
-        else imageView.setImageURI(Uri.fromFile(Presenter.repo(this).file(m)));
-        reveal(imageView);
-        statusFor(s, m, playing ? "playing" : "paused");
-        schedule();
+        String path = Presenter.repo(this).file(m).getAbsolutePath();
+        imageLoader.submit(() -> decodeForScreen(path), bitmap -> {
+            if (isDestroyed() || current() != s) {
+                if (bitmap != null) bitmap.recycle();
+                return;
+            }
+            if (bitmap == null) {
+                showError(I18n.format(this, "Image failed to load: {0}", m.displayName), s);
+                return;
+            }
+            hideSurfaces();
+            imageView.setImageBitmap(bitmap);
+            reveal(imageView);
+            statusFor(s, m, playing ? "playing" : "paused");
+            schedule();
+        });
     }
 
     void showVideo(Model.Slide s) {
@@ -598,6 +615,7 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
     }
 
     void showNoSlides() {
+        imageLoader.cancel();
         hideSurfaces();
         handler.removeCallbacks(hidePanel);
         connectionCard.setVisibility(View.GONE);
@@ -614,6 +632,7 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
     }
 
     void showError(String message, Model.Slide s) {
+        imageLoader.cancel();
         hideSurfaces();
         messageTitle.setText(I18n.t(PresentationActivity.this, "Skipping this slide"));
         messageBody.setText(message);
@@ -900,16 +919,33 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
         }
     }
 
-    /** Decodes an image no larger than the screen (keeps memory low on the TV box). */
+    /** Bound both axes before upload; tall images can exceed the GPU texture limit even with a small width. */
     Bitmap decodeForScreen(String path) {
         BitmapFactory.Options o = new BitmapFactory.Options();
         o.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(path, o);
+        if (o.outWidth <= 0 || o.outHeight <= 0) return null;
         int sw = Math.max(1, getResources().getDisplayMetrics().widthPixels);
+        int sh = Math.max(1, getResources().getDisplayMetrics().heightPixels);
         o.inSampleSize = 1;
-        while (o.outWidth / (o.inSampleSize * 2) >= sw) o.inSampleSize *= 2;
+        while (o.outWidth / o.inSampleSize > sw * 2L || o.outHeight / o.inSampleSize > sh * 2L) {
+            o.inSampleSize *= 2;
+        }
         o.inJustDecodeBounds = false;
-        return BitmapFactory.decodeFile(path, o);
+        Bitmap decoded = null;
+        try {
+            decoded = BitmapFactory.decodeFile(path, o);
+            if (decoded == null) return null;
+            float scale = Math.min(1f, Math.min(sw / (float) decoded.getWidth(), sh / (float) decoded.getHeight()));
+            if (scale >= 1f) return decoded;
+            Bitmap fitted = Bitmap.createScaledBitmap(decoded, Math.max(1, Math.round(decoded.getWidth() * scale)),
+                    Math.max(1, Math.round(decoded.getHeight() * scale)), true);
+            if (fitted != decoded) decoded.recycle();
+            return fitted;
+        } catch (RuntimeException | OutOfMemoryError error) {
+            if (decoded != null && !decoded.isRecycled()) decoded.recycle();
+            return null;
+        }
     }
 
     Model.Slide current() {

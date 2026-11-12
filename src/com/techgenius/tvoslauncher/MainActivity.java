@@ -74,7 +74,7 @@ import java.util.Set;
 /** tvOS-style home screen: blurred backdrop, top shelf title, rounded app tile grid. */
 public class MainActivity extends Activity {
 
-    static final int COLS = 6;
+    static final int COLS = 5;
     static final String SETTINGS_KEY = "special:settings";
     static final String PRESENT_KEY = "special:present";
     static final String INPUTS_KEY = "special:inputs";
@@ -191,16 +191,41 @@ public class MainActivity extends Activity {
     ImageView heroProvider;
     GradientDrawable heroBtnBg;
     List<Suggestions.Item> heroItems = new ArrayList<>();
+    Suggestions.Item heroArtworkItem;
     int heroIndex;
     boolean heroShown;          // carousel currently forms the background
     int heroVersion = -1;       // Suggestions.version() the items were loaded for
-    String wallStyle;
-    /** What Liquid Glass samples: a blurred copy of the wallpaper or of the carousel artwork. */
+    String classicPreviewSignature = "";
+    String classicPreviewAppKey = "";
+    long classicPreviewRefreshAt;
+    boolean classicPreviewPending;
+    /** What Liquid Glass samples: a blurred copy of the neutral background or carousel artwork. */
     Bitmap wallBlur, heroBlur, glassBg;
     final LiquidGlass.Backdrop glassSource = () -> glassBg;
     View dockRow;
+    TextView classicDockLabel;
     boolean returningFromSettings;
     final java.util.concurrent.ExecutorService io = java.util.concurrent.Executors.newSingleThreadExecutor();
+    // Foreground previews must not wait for catalog, widget or speculative image work.
+    final java.util.concurrent.ExecutorService previewIo = java.util.concurrent.Executors.newSingleThreadExecutor();
+    final java.util.concurrent.ExecutorService artworkIo = java.util.concurrent.Executors.newSingleThreadExecutor();
+    final LatestTask<List<Suggestions.Item>> classicPreviewLoader = new LatestTask<>(
+            previewIo, task -> handler.post(task), items -> { });
+    final LatestTask<HeroArtwork> heroArtworkLoader = new LatestTask<>(
+            artworkIo, task -> handler.post(task), HeroArtwork::discard);
+
+    /** Prepared resources travel together; only unpublished results may be recycled. */
+    static final class HeroArtwork {
+        final Bitmap image, blur, logo;
+        HeroArtwork(Bitmap image, Bitmap blur, Bitmap logo) {
+            this.image = image; this.blur = blur; this.logo = logo;
+        }
+        void discard() {
+            if (image != null && !image.isRecycled()) image.recycle();
+            if (blur != null && !blur.isRecycled()) blur.recycle();
+            if (logo != null && !logo.isRecycled()) logo.recycle();
+        }
+    }
     final Runnable heroAdvance = () -> {
         if (this.search != null) scheduleAdvance();  // nothing to see under search; keep the slot
         else heroStep(1, false);
@@ -243,7 +268,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         activeInstance = this;
-        // The wallpaper/artwork always covers the screen: skip the window's own full-screen fill
+        // The Home backdrop covers the screen: skip the window's own full-screen fill.
         // (this Mali-450 GPU is fill-rate bound, so every hidden full-screen layer costs frames).
         getWindow().setBackgroundDrawable(null);
         prefs = Profiles.homePrefs(this);
@@ -259,18 +284,17 @@ public class MainActivity extends Activity {
         screenW = size.x;
         screenH = size.y;
         unit = Ui.unit(this);
-        // Apple tvOS style geometry: slightly larger app cards and rounder squircle-like corners
-        // for both app icons (~16% of card width) and the frosted glass dock, with symmetrical
-        // horizontal and vertical padding so focused edge cards never crowd the dock rim.
-        dockOuter = dp(18);
-        dockInset = dp(24);
+        // Five-column Large Home, as in the user's Apple TV reference: 5:3 icons,
+        // dock top ~69%, bottom ~94%, next row peeking below. Design grid: 960x540.
+        dockOuter = dp(24);
+        dockInset = dp(20);
         side = dockOuter + dockInset;
-        gap = dp(18);
+        gap = dp(26);
         tileW = (screenW - 2 * side - (COLS - 1) * gap) / COLS;
         tileH = tileW * 3 / 5;
         labelH = dp(30);
-        radius = Math.round(tileW * 0.16f);
-        shelfH = (int) (screenH * 0.72f);
+        radius = dp(12);
+        shelfH = Math.round(screenH * 0.69f);
         dockPadV = dp(19);
 
         Clicks.init(this);
@@ -416,10 +440,8 @@ public class MainActivity extends Activity {
         clearLaunchDim();
         boolean wasReturningFromSettings = returningFromSettings;
         if (!Scenes.isScenesLook(this)) {
-            String ws = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
-            if (!ws.equals(wallStyle) || wallView.getDrawable() == null || wasReturningFromSettings) {
-                wallStyle = ws;
-                setWallpaper(ws);
+            if (wallView.getDrawable() == null || wasReturningFromSettings) {
+                setHomeBackground();
             }
             syncClassicClockAndWeatherUi();
         }
@@ -441,7 +463,6 @@ public class MainActivity extends Activity {
             sceneHome.refreshWhoBar();
             sceneHome.refreshMoonBtn();
             sceneHome.refreshKeepWatching();
-            sceneHome.refreshDashboard();
             if (wasReturningFromSettings || sceneHome.dockTiles.isEmpty()) {
                 sceneHome.rebuildDock();
             }
@@ -450,10 +471,8 @@ public class MainActivity extends Activity {
             }
         } else {
             loadHero();
-            if (wasReturningFromSettings) refreshClassicDashboard();
             if (pickerLayer == null && menuLayer == null && (sceneHome == null || !sceneHome.isSheetOpen())
                     && !statusFocused() && !shelfView.hasFocus()
-                    && !classicDashboardCards.contains(getCurrentFocus())
                     && !classicCwCards.contains(getCurrentFocus())) {
                 focusIndex(focusedIndex);
             }
@@ -506,21 +525,30 @@ public class MainActivity extends Activity {
             if (checkSelfPermission("android.permission.READ_TV_LISTINGS") == PackageManager.PERMISSION_GRANTED) {
                 return;
             }
-            if (LocalAdb.getAdbMode(this) == LocalAdb.ADB_MODE_PERSISTENT) {
-                LocalAdb.grantVolumeLongPressPermissionIfNeeded(this, () -> {
-                    if (sceneHome != null && Scenes.isScenesLook(this)) {
-                        sceneHome.refreshKeepWatching();
-                    } else {
-                        loadHero();
-                    }
-                });
-                return;
-            }
-            if (SetupActivity.done(this) && cwEnabled() && !prefs.getBoolean("asked_tv_listings_perm", false)) {
+            if (!SetupActivity.done(this)) return;
+            if (!prefs.getBoolean("asked_tv_listings_perm", false)) {
                 prefs.edit().putBoolean("asked_tv_listings_perm", true).apply();
                 requestPermissions(new String[]{"android.permission.READ_TV_LISTINGS"}, 901);
+                return;
+            }
+            if (LocalAdb.getAdbMode(this) == LocalAdb.ADB_MODE_PERSISTENT) {
+                LocalAdb.grantVolumeLongPressPermissionIfNeeded(this, this::onTvListingsAccessChanged);
             }
         } catch (Throwable ignored) {
+        }
+    }
+
+    /** Permission changes invalidate empty provider results cached before access was granted. */
+    void onTvListingsAccessChanged() {
+        if (isDestroyed()) return;
+        if (sceneHome != null && Scenes.isScenesLook(this)) {
+            sceneHome.refreshKeepWatching();
+        } else {
+            classicPreviewLoader.cancel();
+            classicPreviewSignature = "";
+            classicPreviewPending = false;
+            classicPreviewRefreshAt = 0;
+            if (resumed) loadHero();
         }
     }
 
@@ -528,6 +556,10 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        classicPreviewLoader.cancel();
+        heroArtworkLoader.cancel();
+        classicPreviewSignature = "";
+        classicPreviewPending = false;
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
             exitAmbientShowcase();
         }
@@ -563,7 +595,10 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         catalogGeneration++;
-        wallpaperLoader.cancel();
+        classicPreviewLoader.cancel();
+        heroArtworkLoader.cancel();
+        previewIo.shutdown();
+        artworkIo.shutdown();
         if (activeInstance == this) activeInstance = null;
         if (sceneHome != null) sceneHome.sceneView.releaseCache();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
@@ -584,13 +619,11 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackground(null);
 
-        // One ambient wallpaper for every app. It is drawn tiny and upscaled, so it is already
-        // soft; a slow drift keeps it alive without a per-frame blur on this weak GPU.
+        // Fixed neutral fallback; only published app artwork replaces it.
         wallView = new ImageView(this);
         wallView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        wallStyle = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
         if (!Scenes.isScenesLook(this)) {
-            setWallpaper(wallStyle);
+            setHomeBackground();
         }
         root.addView(wallView, match());
 
@@ -606,7 +639,7 @@ public class MainActivity extends Activity {
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0x14000000, 0x40000000, 0xB3000000}));
         root.addView(shade, match());
-        shade.setVisibility(View.GONE);  // baked into wallpaper + artwork instead
+        shade.setVisibility(View.GONE);  // legibility shades are baked into app artwork
 
         // Left-side scrim so the carousel's title and text stay legible over any artwork.
         heroScrim = new View(this);
@@ -638,6 +671,7 @@ public class MainActivity extends Activity {
                 if (Math.abs(weatherCard.getAlpha() - wa) > 0.005f) weatherCard.setAlpha(wa);
             }
             int dockMaxY = shelfH + tileH + 2 * dockPadV;
+            if (classicDockLabel != null) classicDockLabel.setTranslationY(-y);
             if (dockRow != null && (y < dockMaxY || oy < dockMaxY)) {
                 dockRow.invalidate();
             }
@@ -651,6 +685,15 @@ public class MainActivity extends Activity {
         scroll.addView(content, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(scroll, match());
+
+        // A single caption below the glass follows the selected top-row app, like tvOS.
+        // It lives outside the panel so neither the label nor a lifted card is clipped.
+        classicDockLabel = text(13, Ui.font(this, "medium"), 0f);
+        classicDockLabel.setGravity(Gravity.CENTER);
+        classicDockLabel.setSingleLine(true);
+        classicDockLabel.setEllipsize(TextUtils.TruncateAt.END);
+        classicDockLabel.setIncludeFontPadding(false);
+        root.addView(classicDockLabel, new FrameLayout.LayoutParams(tileW + dp(28), dp(18)));
 
         // Top shelf: header shown only inside the More Apps folder.
         FrameLayout shelf = new FrameLayout(this);
@@ -713,14 +756,12 @@ public class MainActivity extends Activity {
         netIcon = new ImageView(this);
         LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(dp(24), dp(20));
         nlp.rightMargin = dp(8);
-        // Liquid Glass capsule behind the network icon and time, matching the top-right glass buttons.
+        // Keep passive status unframed; only the adjacent buttons need a glass surface.
         LinearLayout timeChip = new LinearLayout(this);
         timeChip.setOrientation(LinearLayout.HORIZONTAL);
         timeChip.setGravity(Gravity.CENTER_VERTICAL);
         timeChip.setPadding(dp(12), 0, dp(14), 0);
-        LiquidGlass chipGlass = new LiquidGlass(btn / 2f, 0x1F000000, glassSource, screenW, screenH, unit).adaptive();
-        chipGlass.lens = dp(4);
-        timeChip.setBackground(chipGlass);
+        // Plain time and connection status leave the glass treatment to actionable controls.
         timeChipView = timeChip;
         time.setShadowLayer(dp(8), 0, dp(1), 0x99000000);
         timeChip.addView(netIcon, nlp);
@@ -817,7 +858,6 @@ public class MainActivity extends Activity {
             if (has) onClassicNonAppFocused();
         });
         ccButton.setOnClickListener(v -> showControlCenter());
-
 
         int av = btn;
         ImageView avatar = new ImageView(this);
@@ -950,7 +990,6 @@ public class MainActivity extends Activity {
                 sceneHome.refreshWhoBar();
                 sceneHome.refreshMoonBtn();
                 sceneHome.refreshKeepWatching();
-                sceneHome.refreshDashboard();
                 sceneHome.rebuildDock();
             }
         }
@@ -962,7 +1001,7 @@ public class MainActivity extends Activity {
                 wallBlur = null;
             }
         } else if (wallView.getDrawable() == null) {
-            setWallpaper(wallStyle);
+            setHomeBackground();
         }
         wallView.setVisibility(scenes ? View.GONE : View.VISIBLE);
         heroBack.setVisibility(View.GONE);
@@ -972,6 +1011,7 @@ public class MainActivity extends Activity {
         heroDots.setVisibility(View.GONE);
         if (switcher != null) switcher.setVisibility(View.GONE);
         clockBox.setVisibility(scenes ? View.GONE : View.VISIBLE);
+        classicDockLabel.setVisibility(scenes ? View.GONE : View.VISIBLE);
         syncClassicClockAndWeatherUi();
         if (scenes && sceneHome != null) {
             sceneHome.focusDock(sceneHome.focusedDockIdx);
@@ -996,27 +1036,20 @@ public class MainActivity extends Activity {
         int dockPadVScaled = focusGrowY + focusedRimMargin;
         currentDockCols = COLS;
 
-        effectiveOtherApps.addAll(otherApps);
-        if (folderMode && effectiveOtherApps.isEmpty()) {
-            folderMode = false;
-        }
-        if (folderMode) {
-            shown.addAll(effectiveOtherApps);
-        } else {
-            shown.addAll(apps);
-            if (!effectiveOtherApps.isEmpty()) shown.add(folderEntry());
-        }
-        // Like tvOS, the home grid has no big title; only the folder gets a header.
-        titleBox.setVisibility(folderMode ? View.VISIBLE : View.GONE);
-        chevron.setVisibility(folderMode ? View.GONE : View.VISIBLE);
-        shelfTitle.setText(I18n.t(this, "Other Apps"));
-        shelfHint.setText(I18n.t(this, "Back to return   \u00b7   Hold OK for options"));
+        // All visible apps live in one scrollable grid, including legacy Other Apps entries.
+        folderMode = false;
+        shown.addAll(apps);
+        titleBox.setVisibility(View.GONE);
+        chevron.setVisibility(View.VISIBLE);
 
         // Removing the focused card would make Android hand focus to the first card (and scroll
         // to the top); block that while rebuilding \u2014 callers focus the right card afterwards.
         content.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         while (content.getChildCount() > 1) content.removeViewAt(1);
         tiles.clear();
+        dockRow = null;
+        classicDockLabel.animate().cancel();
+        classicDockLabel.setAlpha(0f);
         LinearLayout row = null;
         int rowInnerW = COLS * tileW + (COLS - 1) * gap;
         for (int i = 0; i < shown.size(); i++) {
@@ -1062,12 +1095,15 @@ public class MainActivity extends Activity {
         tile.setFocusable(true);
         tile.setClickable(true);
         tile.setLongClickable(true);
+        tile.setContentDescription(a.label);
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(cardRadius);
         bg.setColor(a.banner != null ? 0xFF1C1C1E : a.color);
         tile.setBackground(bg);
         tile.setOutlineProvider(roundedOutline(new float[]{cardRadius}));
         tile.setClipToOutline(true);
+        tile.setElevation(dp(2));
+        tile.setStateListAnimator(null);
 
         ImageView iv = new ImageView(this);
         if (a.banner != null) {
@@ -1112,11 +1148,13 @@ public class MainActivity extends Activity {
                     label.animate().alpha(1f).translationY(cardH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
                 topSheen.setAlpha(1f);
+                v.animate().translationZ(dp(8)).setDuration(180).start();
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
                 stopSway(v);
                 v.animate().scaleX(1f).scaleY(1f).setDuration(140).setInterpolator(EASE).start();
+                v.animate().translationZ(0f).setDuration(140).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
             }
@@ -1128,8 +1166,7 @@ public class MainActivity extends Activity {
             if (FOLDER_KEY.equals(a.key)) {
                 enterFolder();
             } else if (SETTINGS_KEY.equals(a.key) || TV_SETTINGS.equals(a.pkg)) {
-                if (sceneHome != null) sceneHome.showGearSheet(v);
-                else launchAnimated(v, a);
+                openLauncherSettings();
             } else {
                 launchAnimated(v, a);
             }
@@ -1142,35 +1179,21 @@ public class MainActivity extends Activity {
         return cell;
     }
 
-    /** tvOS-style ambient colour field: soft glows of indigo, teal, magenta and amber on navy. */
-    private static final java.util.concurrent.ExecutorService WALLPAPER_IO =
-            java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
-                Thread thread = new Thread(task, "wallpaper-decode"); thread.setDaemon(true); return thread;
-            });
-    private static final class Wallpaper {
-        final Bitmap image, blur;
-        Wallpaper(Bitmap image, Bitmap blur) { this.image = image; this.blur = blur; }
-        void discard() {
-            if (image != null && !image.isRecycled()) image.recycle();
-            if (blur != null && !blur.isRecycled()) blur.recycle();
-        }
+    static final int HOME_BACKGROUND = 0xFF101114;
+    /** A neutral fallback until the focused app supplies its preview. */
+    void setHomeBackground() {
+        Bitmap neutral = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+        neutral.eraseColor(HOME_BACKGROUND);
+        wallView.setImageBitmap(neutral);
+        wallBlur = neutral;
+        if (!heroShown || heroBlur == null) glassBg = neutral;
+        invalidateGlass();
     }
-    private final LatestTask<Wallpaper> wallpaperLoader =
-            new LatestTask<>(WALLPAPER_IO, task -> handler.post(task), Wallpaper::discard);
 
-    void setWallpaper(String style) {
-        wallpaperLoader.submit(() -> {
-            Bitmap image = makeWallpaper(style);
-            return new Wallpaper(image, Ui.glassBackdrop(image, 192, 108));
-        }, wallpaper -> {
-            if (wallpaper == null) return;
-            if (isDestroyed() || Scenes.isScenesLook(this)) { wallpaper.discard(); return; }
-            wallView.setImageBitmap(wallpaper.image);
-            if (sceneHome != null) sceneHome.sceneView.setClassicWallpaperBitmap(wallpaper.image);
-            wallBlur = wallpaper.blur;
-            if (!heroShown || heroBlur == null) glassBg = wallBlur;
-            invalidateGlass();
-        });
+    static Bitmap makeNeutralBackground() {
+        Bitmap neutral = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+        neutral.eraseColor(HOME_BACKGROUND);
+        return neutral;
     }
 
     void invalidateGlass() {
@@ -1183,149 +1206,8 @@ public class MainActivity extends Activity {
         if (ccButton != null) ccButton.invalidate();
         if (weatherCard != null) weatherCard.invalidate();
         for (View c : classicCwCards) c.invalidate();
-        for (View c : classicDashboardCards) c.invalidate();
         if (sceneHome != null) sceneHome.invalidateSceneGlass();
         if (menuLayer != null && menuLayer.getChildCount() > 0) menuLayer.getChildAt(0).invalidate();
-    }
-
-    static final String[] WALL_KEYS = {
-        "photo:tessellated-pavement.jpg",
-        "photo:grose-valley.jpg",
-        "photo:albury-storm.jpg",
-        "photo:aresquiers-beach.jpg",
-        "photo:vang-vieng-sunset.jpg",
-        "aurora", "midnight", "sunset", "ocean", "graphite"
-    };
-    static final String[] WALL_NAMES = {
-        "Tessellated Pavement", "Grose Valley", "Albury Storm", "Aresquiers Beach", "Vang Vieng Sunset",
-        "Aurora", "Midnight", "Sunset", "Ocean", "Graphite"
-    };
-
-    static String wallName(Context c, int i) {
-        if (i < 0 || i >= WALL_NAMES.length) return "";
-        return I18n.t(c, WALL_NAMES[i]);
-    }
-
-    static final String CUSTOM_WALL_KEY = "custom";
-    static final String FOLDER_SHUFFLE_WALL_KEY = "folder_shuffle";
-
-    Bitmap makeWallpaper(String style) {
-        if (CustomMedia.isCustomWallpaperEnabled(this, CustomMedia.SCOPE_CLASSIC)) {
-            int subMode = CustomMedia.getCustomWallpaperSubMode(this, CustomMedia.SCOPE_CLASSIC);
-            if (subMode == CustomMedia.CUSTOM_MODE_REDDIT || Scenes.REDDIT_WALLPAPER_ID.equals(style)) {
-                Bitmap rb = CustomMedia.getRedditWallpaperBitmap(this, CustomMedia.SCOPE_CLASSIC, 1920, 1080);
-                if (rb != null && !rb.isRecycled()) {
-                    Bitmap copy = rb.copy(Bitmap.Config.ARGB_8888, true);
-                    return bakeShade(copy);
-                } else {
-                    CustomMedia.fetchNextRedditWallpaperAsync(this, CustomMedia.SCOPE_CLASSIC, () -> {
-                        if (!Scenes.isScenesLook(this)) setWallpaper(wallStyle);
-                    });
-                }
-            } else if (subMode == CustomMedia.CUSTOM_MODE_FOLDER_SHUFFLE || FOLDER_SHUFFLE_WALL_KEY.equals(style)) {
-                Bitmap folderBmp = CustomMedia.getNextShuffledFolderBitmap(this, CustomMedia.SCOPE_CLASSIC, 1920, 1080, true);
-                if (folderBmp != null && !folderBmp.isRecycled()) {
-                    Bitmap copy = folderBmp.copy(Bitmap.Config.ARGB_8888, true);
-                    return bakeShade(copy);
-                }
-            } else {
-                Bitmap custom = CustomMedia.getCustomClassicWallpaper(this);
-                if (custom != null && !custom.isRecycled()) {
-                    Bitmap copy = custom.copy(Bitmap.Config.ARGB_8888, true);
-                    return bakeShade(copy);
-                }
-            }
-        }
-        if (FOLDER_SHUFFLE_WALL_KEY.equals(style)) {
-            Bitmap folderBmp = CustomMedia.getNextShuffledFolderBitmap(this, CustomMedia.SCOPE_CLASSIC, 1920, 1080, true);
-            if (folderBmp != null && !folderBmp.isRecycled()) {
-                Bitmap copy = folderBmp.copy(Bitmap.Config.ARGB_8888, true);
-                return bakeShade(copy);
-            }
-        }
-        if (CUSTOM_WALL_KEY.equals(style)) {
-            Bitmap custom = CustomMedia.getCustomClassicWallpaper(this);
-            if (custom != null && !custom.isRecycled()) {
-                Bitmap copy = custom.copy(Bitmap.Config.ARGB_8888, true);
-                return bakeShade(copy);
-            }
-        }
-        if (style != null && style.startsWith("photo:")) {
-            Bitmap ph = Scenes.loadAssetBitmap(this, "backgrounds/" + style.substring(6), 1280, 720);
-            if (ph != null) {
-                Bitmap copy = ph.copy(Bitmap.Config.ARGB_8888, true);
-                if (copy != ph) ph.recycle();
-                return bakeShade(copy);
-            }
-        }
-        return bakeShade(makeWallpaperBase(style != null ? style : "aurora"));
-    }
-
-    /** The bottom darkening that keeps the dock and labels legible, painted into the image. */
-    static Bitmap bakeShade(Bitmap b) {
-        Paint p = new Paint(Paint.DITHER_FLAG);
-        p.setShader(new LinearGradient(0, 0, 0, b.getHeight(), new int[]{0x14000000, 0x40000000, 0xB3000000},
-                null, Shader.TileMode.CLAMP));
-        new Canvas(b).drawRect(0, 0, b.getWidth(), b.getHeight(), p);
-        return b;
-    }
-
-    static Bitmap makeWallpaperBase(String style) {
-        int w = 192, h = 108;
-        Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        Canvas c = new Canvas(b);
-        int base;
-        int[] colors;
-        switch (style) {
-            case "midnight":
-                base = 0xFF04060F;
-                colors = new int[]{0xFF1B2A6B, 0xFF0F3D63, 0xFF2B1B5E, 0xFF14254F, 0xFF22306E};
-                break;
-            case "sunset":
-                base = 0xFF140812;
-                colors = new int[]{0xFFB0412E, 0xFF8E2C6E, 0xFFD08A2E, 0xFF6B2A8E, 0xFFC0563A};
-                break;
-            case "ocean":
-                base = 0xFF031418;
-                colors = new int[]{0xFF0C6E86, 0xFF0B8C76, 0xFF1A4FA0, 0xFF0E5E6E, 0xFF2A7FB0};
-                break;
-            case "graphite":
-                base = 0xFF0C0C0E;
-                colors = new int[]{0xFF3A3A42, 0xFF2A2C34, 0xFF4A4A52, 0xFF26262C, 0xFF34363E};
-                break;
-            default:
-                base = 0xFF080C1E;
-                colors = new int[]{0xFF4B2DB0, 0xFF0B7F8C, 0xFFB02F6E, 0xFFC27A2C, 0xFF2150C0};
-        }
-        c.drawColor(base);
-        float[][] blobs = {      // centre x, centre y, radius (fractions of width)
-                {0.14f, 0.18f, 0.62f},
-                {0.88f, 0.22f, 0.50f},
-                {0.72f, 0.92f, 0.55f},
-                {0.20f, 0.95f, 0.42f},
-                {0.50f, 0.45f, 0.38f}};
-        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
-        for (int i = 0; i < colors.length; i++) {
-            int col = colors[i];
-            p.setShader(new RadialGradient(blobs[i][0] * w, blobs[i][1] * h, blobs[i][2] * w,
-                    new int[]{col & 0xD9FFFFFF, col & 0x59FFFFFF, col & 0x00FFFFFF},
-                    new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
-            c.drawRect(0, 0, w, h, p);
-        }
-        return b;
-    }
-
-    void startWallpaperDrift() {
-        ObjectAnimator dx = ObjectAnimator.ofFloat(wallView, View.TRANSLATION_X, -dp(60), dp(60));
-        dx.setDuration(38000);
-        ObjectAnimator dy = ObjectAnimator.ofFloat(wallView, View.TRANSLATION_Y, dp(30), -dp(30));
-        dy.setDuration(29000);
-        for (ObjectAnimator an : new ObjectAnimator[]{dx, dy}) {
-            an.setRepeatCount(ValueAnimator.INFINITE);
-            an.setRepeatMode(ValueAnimator.REVERSE);
-            an.setInterpolator(new PathInterpolator(0.45f, 0f, 0.55f, 1f));
-            an.start();
-        }
     }
 
     /** Round profile avatar: indigo-to-pink gradient with a person glyph. */
@@ -1507,15 +1389,15 @@ public class MainActivity extends Activity {
     }
 
     int dockGapBelow() {
-        return dp(20);
+        return dp(20); // A short caption fits here; the next row still peeks below the dock.
     }
 
     /** Frosted glass dock (tvOS): lush rounded corner radius, translucent fill, sheen and rim. */
     Drawable dockBackground() {
-        float dockRad = Math.max(dp(24), radius * 1.65f);
-        LiquidGlass g = new LiquidGlass(dockRad, 0x14FFFFFF, glassSource, screenW, screenH, unit);
-        g.lens = dp(12);
-        g.rimStrength = 0.28f;
+        float dockRad = dp(24);
+        LiquidGlass g = new LiquidGlass(dockRad, 0x10FFFFFF, glassSource, screenW, screenH, unit);
+        g.lens = dp(8);
+        g.rimStrength = 0.45f;
         return g;
     }
 
@@ -1898,7 +1780,7 @@ public class MainActivity extends Activity {
         btnRow.addView(heroButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)));
         heroRemove = text(13, Ui.font(this, "semibold"), 1f);
         heroRemove.setShadowLayer(0, 0, 0, 0);
-        heroRemove.setText("\u2715  Remove");
+        heroRemove.setText("\u2715  " + I18n.t(this, "Remove"));
         heroRemove.setGravity(Gravity.CENTER);
         heroRemove.setPadding(dp(16), 0, dp(18), 0);
         heroRemoveBg = new GradientDrawable();
@@ -2125,19 +2007,15 @@ public class MainActivity extends Activity {
         switcher.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
-    /** Down from the status row: the tab bar, or (when it's hidden) the dashboard/CW shelf or the dock. */
+    /** Down from the status row: the tab bar, or (when it's hidden) the Continue Watching shelf or the dock. */
     void focusBelowStatus() {
         if (switcher != null && switcher.getVisibility() == View.VISIBLE) {
             switcher.requestFocus();
-        } else if (!folderMode && classicDashboardBox != null && classicDashboardBox.getVisibility() == View.VISIBLE
-                && !classicDashboardCards.isEmpty()) {
-            classicDashboardCards.get(0).requestFocus();
         } else if (!folderMode && classicCwBox != null && classicCwBox.getVisibility() == View.VISIBLE
                 && !classicCwCards.isEmpty()) {
             classicCwCards.get(0).requestFocus();
-        } else if (shelfView.isFocusable() && !folderMode) {
-            heroRequested = true;
-            shelfView.requestFocus();
+        } else if (canOpenClassicPreview()) {
+            focusClassicPreview();
         } else {
             focusIndex(Math.min(focusedIndex, COLS - 1));
         }
@@ -2161,21 +2039,117 @@ public class MainActivity extends Activity {
     /** Loads cached suggestions at once and refreshes them in the background when stale or reconfigured. */
     String lastCwSig = "";
 
-    /**
-     * Classic Appearance top shelf now behaves like Night Scenes:
-     * - When an app with Continue Watching content is focused, shows the Continue Watching card row.
-     * - When an app without Continue Watching content is focused, shows the clean wallpaper (+ Big Clock).
-     * - When Settings / Other Apps / Inputs / top bar / no app is focused, shows the 4-widget Home Dashboard.
-     */
+    /** Restore app-specific Top Shelf; Android apps without published content keep the neutral background. */
     void loadHero() {
         if (shelfEmpty != null) shelfEmpty.setAlpha(0f);
-        heroItems = new ArrayList<>();
-        if (shelfView != null) shelfView.setFocusable(false);
-        setHeroShown(false);
-        activeClassicCwPkg = null;
         if (!Scenes.isScenesLook(this)) {
             syncClassicTopShelfForIndex(focusedIndex);
+            loadClassicPreview();
         }
+    }
+
+    /** Hide a preview during navigation without discarding its prepared artwork. */
+    void suspendClassicPreview() {
+        classicPreviewLoader.cancel();
+        // A completed preview still belongs to this app while the grid is scrolled away.
+        // A cancelled refresh retries later without throwing away the displayed result.
+        if (classicPreviewPending) {
+            if (hasReadyClassicArtwork()) classicPreviewRefreshAt = 0;
+            else classicPreviewSignature = "";
+        }
+        classicPreviewPending = false;
+        setHeroShown(false);
+    }
+
+    private boolean hasReadyClassicArtwork() {
+        return heroIndex >= 0 && heroIndex < heroItems.size() && heroArtworkItem != null
+                && heroArtworkItem == heroItems.get(heroIndex) && heroFront.getDrawable() != null;
+    }
+
+    /** The focus target exists only for ready content owned by the selected first-row app. */
+    boolean canOpenClassicPreview() {
+        if (!hasReadyClassicArtwork() || folderMode || Scenes.isScenesLook(this)
+                || Scenes.isClassicBigClockEnabled(this) || focusedIndex < 0
+                || focusedIndex >= Math.min(COLS, shown.size())
+                || (classicCwBox != null && classicCwBox.getVisibility() == View.VISIBLE)) return false;
+        AppEntry app = shown.get(focusedIndex);
+        return !isSettings(app) && app.pkg != null && !app.pkg.isEmpty()
+                && app.key.equals(classicPreviewAppKey);
+    }
+
+    boolean focusClassicPreview() {
+        if (!canOpenClassicPreview()) return false;
+        setHeroShown(true);
+        heroRequested = true;
+        boolean focused = shelfView.requestFocus();
+        if (!focused) heroRequested = false;
+        return focused;
+    }
+
+    /** Coalesce rapid focus moves; provider queries, cache reads and fetching run on a worker. */
+    void loadClassicPreview() {
+        if (shelfView.hasFocus()) return;
+        if (Scenes.isScenesLook(this) || Scenes.isClassicBigClockEnabled(this) || folderMode
+                || focusedIndex < 0 || focusedIndex >= Math.min(COLS, shown.size())
+                || statusFocused() || !tiles.get(focusedIndex).hasFocus()) {
+            suspendClassicPreview();
+            return;
+        }
+        AppEntry app = shown.get(focusedIndex);
+        if (app.pkg == null || app.pkg.isEmpty() || isSettings(app)
+                || FOLDER_KEY.equals(app.key) || INPUTS_KEY.equals(app.key)) {
+            suspendClassicPreview();
+            return;
+        }
+        final String pkg = app.pkg;
+        final boolean watch = cwEnabled(), recs = Suggestions.showRecs(this) && Suggestions.ready(this);
+        String signature = Profiles.current(this).id + ":" + pkg + ":" + Suggestions.version(this)
+                + ":" + watch + ":" + recs;
+        long now = android.os.SystemClock.uptimeMillis();
+        boolean sameApp = signature.equals(classicPreviewSignature) && heroVersion == Suggestions.version(this);
+        if (sameApp) {
+            setHeroShown(true);
+            if (now < classicPreviewRefreshAt || classicPreviewPending) return;
+        }
+        boolean keepArtwork = sameApp && hasReadyClassicArtwork();
+        classicPreviewSignature = signature;
+        classicPreviewRefreshAt = now + 60_000L;
+        classicPreviewPending = true;
+        heroVersion = Suggestions.version(this);
+        if (!keepArtwork) {
+            setHeroShown(false);
+            heroArtworkLoader.cancel();
+            heroArtworkItem = null;
+            heroItems = new ArrayList<>();
+            shelfView.setFocusable(false);
+        }
+        classicPreviewLoader.submit(() -> {
+            List<Suggestions.Item> out = new ArrayList<>();
+            out.addAll(MediaWatchService.Store.queryPreviewProgramsForPackage(this, pkg, 6));
+            if (watch) out.addAll(MediaWatchService.Store.listForPackage(this, pkg, 6));
+            if (recs) {
+                List<Suggestions.Item> catalog = Suggestions.cached(this, false);
+                if (catalog == null) {
+                    try { catalog = Suggestions.fetch(this); }
+                    catch (Exception e) { catalog = Suggestions.cached(this, true); }
+                }
+                if (catalog != null) for (Suggestions.Item item : catalog) {
+                    Suggestions.Provider provider = item.provider(this);
+                    if (!"news".equals(item.type) && provider != null && pkg.equals(provider.pkg)) out.add(item);
+                }
+            }
+            Set<String> titles = new HashSet<>();
+            out.removeIf(item -> item.backdrop == null || item.backdrop.isEmpty()
+                    || !titles.add(item.title.toLowerCase(java.util.Locale.ROOT)));
+            return out;
+        }, items -> {
+            if (isDestroyed() || !resumed) {
+                classicPreviewSignature = "";
+                classicPreviewPending = false;
+                return;
+            }
+            setHeroItems(items == null ? Collections.emptyList() : items);
+        });
     }
 
     /** Resume first: up to six recent Continue Watching titles, then news and recommendations. */
@@ -2198,15 +2172,17 @@ public class MainActivity extends Activity {
     }
 
     void setHeroItems(List<Suggestions.Item> items) {
+        classicPreviewPending = false;
+        classicPreviewAppKey = focusedIndex >= 0 && focusedIndex < shown.size() ? shown.get(focusedIndex).key : "";
         // Keep the carousel where it was when the list is refreshed (same title -> same position).
         String curTitle = heroItems.isEmpty() ? null : heroItems.get(Math.min(heroIndex, heroItems.size() - 1)).title;
-        boolean same = curTitle != null && heroFront.getDrawable() != null;
+        boolean same = curTitle != null && heroArtworkItem != null && heroFront.getDrawable() != null;
         if (items.size() > 24) items = new ArrayList<>(items.subList(0, 24));
         heroItems = items;
         int keep = 0;
         for (int i = 0; curTitle != null && i < items.size(); i++) if (items.get(i).title.equals(curTitle)) keep = i;
         heroIndex = keep;
-        shelfView.setFocusable(!items.isEmpty());
+        shelfView.setFocusable(false);
         heroDots.removeAllViews();
         for (int i = 0; i < items.size() && items.size() > 1 && !continueMode(); i++) {
             View d = new View(this);
@@ -2226,21 +2202,22 @@ public class MainActivity extends Activity {
         View f = getCurrentFocus();
         int i = tiles.indexOf(f);
         boolean dock = f == shelfView || (hasDock() && i >= 0 && i < COLS);
-        setHeroShown(dock);
-        if (!(same && items.get(keep).title.equals(curTitle))) showHero(keep, 0);
-        else for (int j = 0; j < heroDots.getChildCount(); j++) heroDots.getChildAt(j).setAlpha(j == keep ? 1f : 0.35f);
-        List<Suggestions.Item> pre = items;
-        io.execute(() -> {
-            for (Suggestions.Item it : pre) {
-                Suggestions.image(this, it.backdrop, "w1280", 64);  // downloads to disk; tiny decode
-                Suggestions.logoFor(this, it);
-            }
-        });
+        if (same && items.get(keep).title.equals(curTitle)
+                && items.get(keep).backdrop.equals(heroArtworkItem.backdrop)) {
+            heroArtworkItem = items.get(keep);
+            shelfView.setFocusable(true);
+            setHeroShown(dock);
+            for (int j = 0; j < heroDots.getChildCount(); j++) heroDots.getChildAt(j).setAlpha(j == keep ? 1f : 0.35f);
+        } else {
+            setHeroShown(false);
+            showHero(keep, 0);
+        }
     }
 
     /** Carousel vs launcher background: crossfade between them. */
     void setHeroShown(boolean show) {
-        show = show && !heroItems.isEmpty() && !folderMode;
+        show = show && canOpenClassicPreview();
+        shelfView.setFocusable(show);
         if (show == heroShown) return;
         heroShown = show;
         glassBg = show && heroBlur != null ? heroBlur : wallBlur;
@@ -2248,6 +2225,8 @@ public class MainActivity extends Activity {
         float a = show ? 1f : 0f;
         if (show) {
             heroFront.setVisibility(View.VISIBLE);
+            heroInfo.setVisibility(View.VISIBLE);
+            heroDots.setVisibility(View.VISIBLE);
         } else {
             wallView.setVisibility(View.VISIBLE);
         }
@@ -2291,25 +2270,41 @@ public class MainActivity extends Activity {
         for (int i = 0; i < heroDots.getChildCount(); i++) {
             heroDots.getChildAt(i).animate().alpha(i == index ? 1f : 0.35f).setDuration(250).start();
         }
-        int want = index;
-        io.execute(() -> {
+        Suggestions.Item want = it;
+        heroArtworkLoader.submit(() -> {
             Bitmap raw = Suggestions.image(this, it.backdrop, "w1280", Math.min(1280, screenW));
             Bitmap bd = "news".equals(it.type) ? bakeNews(raw) : bakeScrims(raw);
             Bitmap bdBlur = Ui.glassBackdrop(bd, 160, 90);
             String logoPath = Suggestions.logoFor(this, it);
             Bitmap logo = logoPath.isEmpty() ? null : Suggestions.image(this, logoPath, "w500", 500);
-            handler.post(() -> {
-                if (heroIndex != want || heroItems.isEmpty()) return;
-                applyHeroInfo(it, logo, dir);
-                if (bd != null) crossfadeHero(bd, dir);
-                if (bdBlur != null) {
-                    heroBlur = bdBlur;
-                    if (heroShown) {
-                        glassBg = heroBlur;
-                        invalidateGlass();
-                    }
+            return new HeroArtwork(bd, bdBlur, logo);
+        }, artwork -> {
+            if (artwork == null) return;
+            if (isDestroyed() || !resumed || heroItems.isEmpty() || heroItems.get(heroIndex) != want) {
+                artwork.discard();
+                return;
+            }
+            Bitmap bd = artwork.image, bdBlur = artwork.blur, logo = artwork.logo;
+            if (bd == null) {
+                artwork.discard();
+                heroArtworkItem = null;
+                setHeroShown(false);
+                return;
+            }
+            applyHeroInfo(it, logo, dir);
+            crossfadeHero(bd, dir);
+            heroArtworkItem = it;
+            shelfView.setFocusable(true);
+            if (bdBlur != null) {
+                heroBlur = bdBlur;
+                if (heroShown) {
+                    glassBg = heroBlur;
+                    invalidateGlass();
                 }
-            });
+            }
+            View focused = getCurrentFocus();
+            int tileIndex = tiles.indexOf(focused);
+            setHeroShown(focused == shelfView || (hasDock() && tileIndex >= 0 && tileIndex < COLS));
         });
     }
 
@@ -2317,7 +2312,7 @@ public class MainActivity extends Activity {
     void applyHeroInfo(Suggestions.Item it, Bitmap logo, int dir) {
         boolean news = "news".equals(it.type);
         if (removeSelected) selectRemove(false);
-        heroRemove.setVisibility(!it.pkg.isEmpty() && shelfView.isFocused() ? View.VISIBLE : View.GONE);
+        heroRemove.setVisibility(heroIsContinue() && shelfView.isFocused() ? View.VISIBLE : View.GONE);
         if (shelfView.isFocused()) {
             heroButton.setVisibility(news ? View.GONE : View.VISIBLE);
             if (!news) heroButton.setAlpha(1f);
@@ -2341,11 +2336,10 @@ public class MainActivity extends Activity {
         if (!it.pkg.isEmpty()) {  // Continue Watching entry
             List<String> meta = new ArrayList<>();
             meta.add(appLabel(it.pkg));
-            if (it.remainingMin > 0) meta.add(it.remainingMin >= 60
-                    ? (it.remainingMin / 60) + " h " + (it.remainingMin % 60) + " min left" : it.remainingMin + " min left");
+            if (it.remainingMin > 0) meta.add(I18n.t(this, it.remainingMin + " min left"));
             heroMeta.setText(String.join("  \u00B7  ", meta));
             heroOverview.setText(it.overview);
-            heroBtnText.setText("\u25B6  Resume");
+            heroBtnText.setText("\u25B6  " + I18n.t(this, heroIsContinue() ? "Resume" : "Open"));
             try {
                 heroProvider.setImageDrawable(getPackageManager().getApplicationIcon(it.pkg));
                 heroProvider.setVisibility(View.VISIBLE);
@@ -2384,13 +2378,14 @@ public class MainActivity extends Activity {
         }
         List<String> meta = new ArrayList<>();
         if (!it.year.isEmpty()) meta.add(it.year);
-        meta.add(it.type.equals("tv") ? "Series" : "Movie");
+        meta.add(I18n.t(this, it.type.equals("tv") ? "Series" : "Movie"));
         if (!it.genres.isEmpty()) meta.add(it.genres);
         if (it.rating > 0) meta.add(String.format(java.util.Locale.US, "\u2605 %.1f", it.rating));
         heroMeta.setText(String.join("  \u00B7  ", meta));
         heroOverview.setText(it.overview);
         Suggestions.Provider p = it.provider(this);
-        heroBtnText.setText(p != null && !Suggestions.installed(this, p.pkg) ? "Get" : "\u25B6  Open");
+        heroBtnText.setText(p != null && !Suggestions.installed(this, p.pkg)
+                ? I18n.t(this, "Get") : "\u25B6  " + I18n.t(this, "Open"));
         int icon = p == null ? 0 : getResources().getIdentifier("provider_" + p.jwShort, "drawable", getPackageName());
         heroProvider.setImageResource(icon);
         heroProvider.setVisibility(icon == 0 ? View.GONE : View.VISIBLE);
@@ -2446,8 +2441,6 @@ public class MainActivity extends Activity {
     TextView classicCwHeader;
     android.widget.HorizontalScrollView classicCwScroll;
     final List<View> classicCwCards = new ArrayList<>();
-    FrameLayout classicDashboardBox;
-    final List<View> classicDashboardCards = new ArrayList<>();
     String activeClassicCwPkg = null;
     int classicCwLoadGen = 0;
 
@@ -2498,44 +2491,21 @@ public class MainActivity extends Activity {
         wlp.bottomMargin = dp(26);
         shelf.addView(classicCwBox, wlp);
 
-        rebuildClassicDashboardBox(shelf);
-    }
-
-    void rebuildClassicDashboardBox(FrameLayout shelf) {
-        if (shelf == null) return;
-        if (classicDashboardBox != null) {
-            shelf.removeView(classicDashboardBox);
-        }
-        classicDashboardBox = HomeDashboard.buildRow(
-                this, unit, screenW, side, classicDashboardCards, glassSource);
-        classicDashboardBox.setVisibility(View.GONE);
-        classicDashboardBox.setAlpha(0f);
-        FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM | Gravity.START);
-        dlp.bottomMargin = dp(32);
-        shelf.addView(classicDashboardBox, dlp);
-    }
-
-    void refreshClassicDashboard() {
-        if (shelfView != null) {
-            rebuildClassicDashboardBox(shelfView);
-            syncClassicTopShelfForIndex(focusedIndex);
-        }
     }
 
     void onClassicNonAppFocused() {
         if (Scenes.isScenesLook(this) || folderMode) return;
+        suspendClassicPreview();
+        classicDockLabel.animate().cancel();
+        classicDockLabel.setAlpha(0f);
         activeClassicCwPkg = null;
         hideClassicCw();
-        showClassicDashboard();
     }
 
     void syncClassicTopShelfForIndex(int index) {
         if (Scenes.isScenesLook(this) || folderMode) {
             activeClassicCwPkg = null;
             hideClassicCw();
-            hideClassicDashboard();
             return;
         }
         if (statusFocused() || (weatherCard != null && weatherCard.isFocused())) {
@@ -2546,11 +2516,7 @@ public class MainActivity extends Activity {
         if (index >= Math.max(1, currentDockCols)) {
             activeClassicCwPkg = null;
             hideClassicCw();
-            if (HomeDashboard.isShowWhenNoCw(this)) {
-                showClassicDashboard();
-            } else {
-                hideClassicDashboard();
-            }
+
             return;
         }
         AppEntry a = (index >= 0 && index < shown.size()) ? shown.get(index) : null;
@@ -2562,40 +2528,10 @@ public class MainActivity extends Activity {
         if (!cwEnabled()) {
             activeClassicCwPkg = null;
             hideClassicCw();
-            if (HomeDashboard.isShowWhenNoCw(this)) {
-                showClassicDashboard();
-            } else {
-                hideClassicDashboard();
-            }
+
             return;
         }
         showClassicCwForPackage(a.pkg);
-    }
-
-    void showClassicDashboard() {
-        if (classicDashboardBox == null) return;
-        if (!HomeDashboard.isAnyEnabled(this) || folderMode) {
-            hideClassicDashboard();
-            return;
-        }
-        if (classicDashboardCards.isEmpty() && shelfView != null) {
-            rebuildClassicDashboardBox(shelfView);
-        }
-        if (classicDashboardCards.isEmpty()) return;
-        classicDashboardBox.animate().cancel();
-        if (classicDashboardBox.getVisibility() != View.VISIBLE) {
-            classicDashboardBox.setVisibility(View.VISIBLE);
-            classicDashboardBox.setAlpha(0f);
-            classicDashboardBox.setTranslationY(dp(8));
-        }
-        classicDashboardBox.animate().alpha(1f).translationY(0f).setDuration(210).setInterpolator(EASE).start();
-    }
-
-    void hideClassicDashboard() {
-        if (classicDashboardBox == null || classicDashboardBox.getVisibility() != View.VISIBLE) return;
-        classicDashboardBox.animate().cancel();
-        classicDashboardBox.setAlpha(0f);
-        classicDashboardBox.setVisibility(View.GONE);
     }
 
     void hideClassicCw() {
@@ -2609,24 +2545,19 @@ public class MainActivity extends Activity {
     void showClassicCwForPackage(String pkg) {
         if (sceneHome == null || classicCwBox == null || pkg == null || pkg.isEmpty()) {
             hideClassicCw();
-            if (HomeDashboard.isShowWhenNoCw(this)) showClassicDashboard();
-            else hideClassicDashboard();
+
             return;
         }
         if (!cwEnabled()) {
             activeClassicCwPkg = null;
             hideClassicCw();
-            if (HomeDashboard.isShowWhenNoCw(this)) showClassicDashboard();
-            else hideClassicDashboard();
+
             return;
         }
         if (pkg.equals(activeClassicCwPkg) && classicCwBox.getVisibility() == View.VISIBLE && !classicCwCards.isEmpty()) {
-            hideClassicDashboard();
             return;
         }
-        if (!HomeDashboard.isShowWhenNoCw(this)) {
-            hideClassicDashboard();
-        }
+
         activeClassicCwPkg = pkg;
         final int gen = ++classicCwLoadGen;
         io.execute(() -> {
@@ -2641,14 +2572,9 @@ public class MainActivity extends Activity {
                     classicCwBox.animate().cancel();
                     classicCwBox.setAlpha(0f);
                     classicCwBox.setVisibility(View.GONE);
-                    if (HomeDashboard.isShowWhenNoCw(this)) {
-                        showClassicDashboard();
-                    } else {
-                        hideClassicDashboard();
-                    }
+
                     return;
                 }
-                hideClassicDashboard();
                 if (classicCwHeader != null) {
                     classicCwHeader.setText(I18n.t(this, "Continue watching"));
                 }
@@ -2676,6 +2602,7 @@ public class MainActivity extends Activity {
                     classicCwBox.setAlpha(0f);
                     classicCwBox.setTranslationY(dp(8));
                 }
+                setHeroShown(false);
                 classicCwBox.animate().alpha(1f).translationY(0f).setDuration(210).setInterpolator(EASE).start();
             });
         });
@@ -2705,13 +2632,15 @@ public class MainActivity extends Activity {
     TextView shelfEmpty;
 
     void heroFocused(boolean has) {
-        if (has && !heroRequested) {
+        if (has && (!heroRequested || !canOpenClassicPreview())) {
             // Android parked focus here on its own (startup/rebuild): hand it back to the dock.
             handler.post(() -> focusIndex(Math.min(focusedIndex, Math.max(0, tiles.size() - 1))));
             return;
         }
         if (!has) heroRequested = false;
         if (has) {
+            classicDockLabel.animate().cancel();
+            classicDockLabel.setAlpha(0f);
             setHeroShown(true);
             heroButton.animate().scaleX(1.08f).scaleY(1.08f).setDuration(220).setInterpolator(LIFT).start();
             heroButton.setElevation(dp(10));
@@ -2753,7 +2682,8 @@ public class MainActivity extends Activity {
     }
 
     boolean heroIsContinue() {
-        return heroIndex >= 0 && heroIndex < heroItems.size() && !heroItems.get(heroIndex).pkg.isEmpty();
+        return heroIndex >= 0 && heroIndex < heroItems.size()
+                && "continue".equals(heroItems.get(heroIndex).type);
     }
 
     /** Moves the highlight between Resume and Remove (the carousel keeps focus). */
@@ -2772,7 +2702,7 @@ public class MainActivity extends Activity {
         selectRemove(false);
         lastCwSig = "";
         heroVersion = -1;
-        toast("Removed " + it.title);
+        toast(I18n.format(this, "Removed {0}", it.title));
         loadHero();
     }
 
@@ -2787,7 +2717,7 @@ public class MainActivity extends Activity {
         int k = ev.getKeyCode();
         boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
         View f = getCurrentFocus();
-        boolean heroActive = shelfView.isFocusable() && !folderMode;
+        boolean heroActive = canOpenClassicPreview();
         if (f == shelfView) {
             switch (k) {
                 case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -2810,13 +2740,13 @@ public class MainActivity extends Activity {
                     }
                     return true;
                 case KeyEvent.KEYCODE_MENU:
-                    if (!down && !heroItems.isEmpty() && !heroItems.get(heroIndex).pkg.isEmpty()) {
+                    if (!down && heroIsContinue()) {
                         Suggestions.Item it = heroItems.get(heroIndex);
                         List<String> l = new ArrayList<>();
                         List<Runnable> act = new ArrayList<>();
-                        l.add("Resume");
+                        l.add(I18n.t(this, "Resume"));
                         act.add(() -> openHeroItem(it));
-                        l.add("Remove from Continue Watching");
+                        l.add(I18n.t(this, "Remove from Continue Watching"));
                         act.add(() -> {
                             MediaWatchService.Store.remove(this, it.key);
                             heroItems = new ArrayList<>();
@@ -2857,8 +2787,7 @@ public class MainActivity extends Activity {
                 case KeyEvent.KEYCODE_BACK:
                     if (down) {
                         if (heroActive) {
-                            heroRequested = true;
-                            shelfView.requestFocus();
+                            focusClassicPreview();
                         } else {
                             focusIndex(Math.min(focusedIndex, Math.max(1, currentDockCols) - 1));
                         }
@@ -2911,26 +2840,6 @@ public class MainActivity extends Activity {
                 default: return false;
             }
         }
-        int dashIdx = classicDashboardCards.indexOf(f);
-        if (dashIdx >= 0) {
-            if (k == KeyEvent.KEYCODE_DPAD_LEFT) {
-                if (down && dashIdx > 0) classicDashboardCards.get(dashIdx - 1).requestFocus();
-                return true;
-            }
-            if (k == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                if (down && dashIdx + 1 < classicDashboardCards.size()) classicDashboardCards.get(dashIdx + 1).requestFocus();
-                return true;
-            }
-            if (k == KeyEvent.KEYCODE_DPAD_UP) {
-                if (down) focusTop();
-                return true;
-            }
-            if (k == KeyEvent.KEYCODE_DPAD_DOWN || k == KeyEvent.KEYCODE_BACK) {
-                if (down) focusIndex(Math.min(focusedIndex, Math.max(1, currentDockCols) - 1));
-                return true;
-            }
-            return false;
-        }
         int cwIdx = classicCwCards.indexOf(f);
         if (cwIdx >= 0) {
             if (k == KeyEvent.KEYCODE_DPAD_LEFT) {
@@ -2973,15 +2882,11 @@ public class MainActivity extends Activity {
             if (k == KeyEvent.KEYCODE_DPAD_UP) {
                 if (down) {
                     if (i < cols) {
-                        if (!folderMode && classicDashboardBox != null && classicDashboardBox.getVisibility() == View.VISIBLE
-                                && !classicDashboardCards.isEmpty()) {
-                            classicDashboardCards.get(0).requestFocus();
-                        } else if (!folderMode && classicCwBox != null && classicCwBox.getVisibility() == View.VISIBLE
+                        if (!folderMode && classicCwBox != null && classicCwBox.getVisibility() == View.VISIBLE
                                 && !classicCwCards.isEmpty()) {
                             classicCwCards.get(0).requestFocus();
                         } else if (heroActive) {
-                            heroRequested = true;
-                            shelfView.requestFocus();
+                            focusClassicPreview();
                         } else {
                             focusTop();
                         }
@@ -3393,9 +3298,11 @@ public class MainActivity extends Activity {
 
     void onTileFocused(int index) {
         focusedIndex = index;
+        updateDockLabel(index);
         int cols = Math.max(1, currentDockCols);
         setHeroShown(false);
         syncClassicTopShelfForIndex(index);
+        loadClassicPreview();
         int row = index / cols;
         scrollToRow(row);
         handler.removeCallbacks(shelfUpdate);
@@ -3435,12 +3342,34 @@ public class MainActivity extends Activity {
         shelfEntry = a;
     }
 
+    /** Keep the caption in the selected card's column, below its fully lifted bounds. */
+    void updateDockLabel(int index) {
+        if (classicDockLabel == null) return;
+        boolean visible = !folderMode && !Scenes.isScenesLook(this)
+                && index >= 0 && index < Math.min(COLS, shown.size());
+        classicDockLabel.animate().cancel();
+        if (!visible) {
+            classicDockLabel.setAlpha(0f);
+            return;
+        }
+        classicDockLabel.setText(shown.get(index).label);
+        int padH = Math.round(tileW * (FOCUS_SCALE - 1f) / 2f) + dp(11);
+        int panelW = COLS * tileW + (COLS - 1) * gap + 2 * padH;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) classicDockLabel.getLayoutParams();
+        lp.leftMargin = (screenW - panelW) / 2 + padH + index * (tileW + gap) - dp(14);
+        lp.topMargin = shelfH + tileH + 2 * (Math.round(tileH * (FOCUS_SCALE - 1f) / 2f) + dp(11)) + dp(2);
+        classicDockLabel.setLayoutParams(lp);
+        classicDockLabel.setTranslationY(-scroll.getScrollY());
+        classicDockLabel.animate().alpha(1f).setDuration(160).start();
+    }
+
     void focusIndex(int i) {
         if (tiles.isEmpty()) return;
         i = Math.max(0, Math.min(i, tiles.size() - 1));
         tiles.get(i).requestFocus();
         focusedIndex = i;
         updateShelf(shown.get(i));
+        updateDockLabel(i);
         int cols = Math.max(1, currentDockCols);
         int row = i / cols;
         if (content.isLayoutRequested()) {
@@ -3451,10 +3380,10 @@ public class MainActivity extends Activity {
     void goTop() {
         if (Scenes.isScenesLook(this) && sceneHome != null) {
             if (sceneHome.isSheetOpen()) sceneHome.closeSheet();
-            sceneHome.focusDock(sceneHome.focusedDockIdx);
+            sceneHome.focusDock(0);
             return;
         }
-        focusIndex(focusedIndex);
+        focusIndex(0);
     }
 
     String currentKey() {
@@ -3528,7 +3457,6 @@ public class MainActivity extends Activity {
             folderMode = true;
             setHeroShown(false);
             hideClassicCw();
-            hideClassicDashboard();
             if (!Scenes.isScenesLook(this) && Scenes.isClassicBigClockEnabled(this) && sceneHome != null) {
                 sceneHome.sceneView.setAlpha(0f);
             }
@@ -3574,6 +3502,11 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent ev) {
+        // Recents is a modal layer outside pickerLayer. It must receive Back and arrows
+        // before Home shortcuts, hold-Back search, and grid navigation can consume them.
+        if (RecentAppsOverlay.isShowing()) {
+            return RecentAppsOverlay.dispatchKeyEvent(ev) || super.dispatchKeyEvent(ev);
+        }
         if (ambientShowcase) {
             if (ev == null) return true;
             int action = ev.getAction();
@@ -3698,7 +3631,7 @@ public class MainActivity extends Activity {
 
     private static final class AppCatalog {
         final Map<String, AppEntry> all = new LinkedHashMap<>();
-        final List<AppEntry> apps = new ArrayList<>(), other = new ArrayList<>(), hidden = new ArrayList<>();
+        final List<AppEntry> apps = new ArrayList<>(), hidden = new ArrayList<>();
         List<Inputs.Input> inputs;
     }
     private long catalogGeneration;
@@ -3707,7 +3640,7 @@ public class MainActivity extends Activity {
     private void applyAppCatalog(AppCatalog catalog) {
         all.clear(); all.putAll(catalog.all);
         apps.clear(); apps.addAll(catalog.apps);
-        otherApps.clear(); otherApps.addAll(catalog.other);
+        otherApps.clear();
         hiddenApps.clear(); hiddenApps.addAll(catalog.hidden);
         inputs = catalog.inputs;
         catalogReady = true;
@@ -3736,7 +3669,7 @@ public class MainActivity extends Activity {
     private AppCatalog readAppCatalog(SharedPreferences home) {
         AppCatalog catalog = new AppCatalog();
         Map<String, AppEntry> all = catalog.all;
-        List<AppEntry> apps = catalog.apps, otherApps = catalog.other, hiddenApps = catalog.hidden;
+        List<AppEntry> apps = catalog.apps, hiddenApps = catalog.hidden;
         PackageManager pm = getPackageManager();
         Set<String> pkgs = new HashSet<>();
         addResolved(pm, Intent.CATEGORY_LEANBACK_LAUNCHER, pkgs, true, all);
@@ -3763,19 +3696,16 @@ public class MainActivity extends Activity {
         }
 
         Set<String> hidden = home.getStringSet(PREF_HIDDEN, Collections.emptySet());
-        Set<String> other = home.getStringSet(PREF_OTHER, Collections.emptySet());
+        // Legacy Other Apps membership no longer filters the Home catalog.
         Map<String, AppEntry> pool = new LinkedHashMap<>();
         for (AppEntry e : all.values()) {
             if (hidden.contains(e.key) || (e.pkg != null && hidden.contains(e.pkg))) {
                 hiddenApps.add(e);
-            } else if (other.contains(e.key) || (e.pkg != null && other.contains(e.pkg))) {
-                otherApps.add(e);
             } else {
                 pool.put(e.key, e);
             }
         }
         Collections.sort(hiddenApps, (x, y) -> x.label.compareToIgnoreCase(y.label));
-        Collections.sort(otherApps, (x, y) -> x.label.compareToIgnoreCase(y.label));
 
         for (String key : home.getString(PREF_ORDER, "").split(",")) {
             AppEntry e = pool.remove(key);
@@ -4170,22 +4100,11 @@ public class MainActivity extends Activity {
             labels.add(I18n.t(this, "Change app icon"));
             actions.add(() -> promptChangeAppIcon(a, () -> reload(a.key)));
         }
-        if (folderMode) {
-            labels.add(I18n.t(this, "Show on Home Screen"));
-            actions.add(() -> setOtherApp(a, false));
-            if (!isSettings(a)) {
-                labels.add(I18n.t(this, "Hide"));
-                actions.add(() -> setHidden(a, true));
-            }
-        } else {
-            labels.add(I18n.t(this, "Move"));
-            actions.add(() -> startMove(index));
-            if (!isSettings(a)) {
-                labels.add(I18n.t(this, "Move to Other Apps"));
-                actions.add(() -> setOtherApp(a, true));
-                labels.add(I18n.t(this, "Hide"));
-                actions.add(() -> setHidden(a, true));
-            }
+        labels.add(I18n.t(this, "Move"));
+        actions.add(() -> startMove(index));
+        if (!isSettings(a)) {
+            labels.add(I18n.t(this, "Hide"));
+            actions.add(() -> setHidden(a, true));
         }
         String uninstLabel = I18n.t(this, "Uninstall");
         if (!isSettings(a) && !INPUTS_KEY.equals(a.key)) {
@@ -4253,17 +4172,11 @@ public class MainActivity extends Activity {
                             .putExtra("page", SettingsActivity.BUTTON_MAPPER));
                 },
                 () -> {
-                    View ret = popoverReturn != null ? popoverReturn : ccButton;
                     dropPicker();
                     pickerLayer = null;
                     popoverReturn = null;
                     weatherOpen = false;
-                    if (sceneHome != null) {
-                        sceneHome.showGearSheet(ret);
-                    } else {
-                        returningFromSettings = true;
-                        startActivity(new Intent(this, SettingsActivity.class));
-                    }
+                    openLauncherSettings();
                 },
                 () -> {
                     closeProfilePicker();
@@ -4548,7 +4461,6 @@ public class MainActivity extends Activity {
         SleepReceiver.setTimer(this, next);
         if (sceneHome != null) sceneHome.refreshMoonBtn();
     }
-
 
     // ---------------------------------------------------------------- inputs
 
@@ -4872,6 +4784,7 @@ public class MainActivity extends Activity {
         }
         if (!Scenes.isScenesLook(this)) {
             scroll.setVisibility(View.GONE);
+            classicDockLabel.setVisibility(View.GONE);
             clockBox.setVisibility(View.GONE);
             if (weatherCard != null) weatherCard.setVisibility(View.GONE);
             if (switcher != null) switcher.setVisibility(View.GONE);
@@ -5004,20 +4917,6 @@ public class MainActivity extends Activity {
             updateWeather();
             // Carousel content rotates even if Home stays open for hours (fetches only when stale).
             if (++tickCount % 5 == 0 && !shelfView.hasFocus()) loadHero();
-            if (!Scenes.isScenesLook(MainActivity.this)) {
-                if (CustomMedia.isCustomWallpaperEnabled(MainActivity.this, CustomMedia.SCOPE_CLASSIC)) {
-                    int cm = CustomMedia.getCustomWallpaperSubMode(MainActivity.this, CustomMedia.SCOPE_CLASSIC);
-                    if (cm == CustomMedia.CUSTOM_MODE_FOLDER_SHUFFLE) {
-                        setWallpaper(wallStyle);
-                    } else if (cm == CustomMedia.CUSTOM_MODE_REDDIT
-                            && CustomMedia.isRedditChangeDue(MainActivity.this, CustomMedia.SCOPE_CLASSIC)) {
-                        CustomMedia.fetchNextRedditWallpaperAsync(MainActivity.this, CustomMedia.SCOPE_CLASSIC,
-                                () -> setWallpaper(wallStyle));
-                    }
-                } else if (FOLDER_SHUFFLE_WALL_KEY.equals(wallStyle)) {
-                    setWallpaper(wallStyle);
-                }
-            }
             if (tickCount % 15 == 0) AirPlayGuard.check(MainActivity.this, false);
             LocalAdb.checkAndRepairPermissionsIfNeeded(MainActivity.this, false);
             updateNet();
@@ -5029,13 +4928,9 @@ public class MainActivity extends Activity {
         return weatherCard != null && weatherCard.getVisibility() == View.VISIBLE && weatherAlpha() > 0.5f;
     }
 
-    void showSettingsSheet() {
-        if (sceneHome != null) {
-            sceneHome.showGearSheet(ccButton);
-        } else {
-            returningFromSettings = true;
-            startActivity(new Intent(this, SettingsActivity.class));
-        }
+    void openLauncherSettings() {
+        returningFromSettings = true;
+        startActivity(new Intent(this, SettingsActivity.class));
     }
 
     void syncCaffeineWindowFlag() {
@@ -5433,11 +5328,7 @@ public class MainActivity extends Activity {
         if (req == SearchPanel.REQ_MIC && search != null) {
             search.onMicPermission(results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED);
         } else if (req == 901) {
-            if (sceneHome != null && Scenes.isScenesLook(this)) {
-                sceneHome.refreshKeepWatching();
-            } else {
-                loadHero();
-            }
+            onTvListingsAccessChanged();
         }
     }
 
@@ -5690,8 +5581,7 @@ public class MainActivity extends Activity {
         Profiles.setCurrent(this, id);
         prefs = Profiles.homePrefs(this);
         refreshAvatar();
-        wallStyle = prefs.getString("wallpaper", "aurora");
-        setWallpaper(wallStyle);
+        setHomeBackground();
         folderMode = false;
         moveIndex = -1;
         String mode = prefs.getString("shelf_mode", "suggest");
@@ -5855,7 +5745,7 @@ public class MainActivity extends Activity {
 
     void moveTo(int to) {
         int cols = Math.max(1, currentDockCols);
-        int last = apps.size() - 1;  // the folder tile always stays at the end
+        int last = apps.size() - 1;
         if (to > last && moveIndex / cols < last / cols) to = last;
         if (to < 0 || to > last || to == moveIndex) return;
         Map<String, int[]> before = tilePositions();

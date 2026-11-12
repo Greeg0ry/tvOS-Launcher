@@ -24,22 +24,22 @@ public final class I18n {
     private static String cachedLang;
 
     static {
-        EN_MAP.put("dash_prayer_times", "Prayer Times");
-        EN_MAP.put("dash_football", "Football Matches");
-        EN_MAP.put("dash_latest_releases", "Most Watched");
+
+
+
         EN_MAP.put("weather", "Weather");
-        EN_MAP.put("prayer_fajr", "Fajr");
-        EN_MAP.put("prayer_sunrise", "Sunrise");
-        EN_MAP.put("prayer_dhuhr", "Dhuhr");
-        EN_MAP.put("prayer_asr", "Asr");
-        EN_MAP.put("prayer_maghrib", "Maghrib");
-        EN_MAP.put("prayer_isha", "Isha");
-        EN_MAP.put("prayer_remaining", "remaining");
-        EN_MAP.put("prayer_method_label", "Calculation Method");
-        EN_MAP.put("football_loading", "Loading matches\u2026");
-        EN_MAP.put("football_fav_teams", "Favorite Teams");
-        EN_MAP.put("football_no_matches", "No matches scheduled right now");
-        EN_MAP.put("releases_loading", "Loading titles\u2026");
+
+
+
+
+
+
+
+
+
+
+
+
         EN_MAP.put("weather_updating", "Updating\u2026");
         EN_MAP.put("tomorrow_short", "Tomorrow");
         EN_MAP.put("tomorrow", "Tomorrow");
@@ -60,8 +60,8 @@ public final class I18n {
         EN_MAP.put("tv_settings", "TV Settings");
         EN_MAP.put("sleep_timer", "Sleep Timer");
         EN_MAP.put("keep_watching", "Keep watching");
-        EN_MAP.put("releases_country_setting", "Most Watched countries");
-        EN_MAP.put("releases_country_auto", "Automatic (Sync with UI language)");
+
+
         RussianTranslations.addTo(RU_MAP);
     }
 

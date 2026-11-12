@@ -52,7 +52,7 @@ Put `ANDROID_HOME` (and `JAVA_HOME` if `javac` isn't on your `PATH`) in your she
 ## 3. Get the code and build
 
 ```sh
-git clone http://10.0.0.220/marketing/tvOS-Launcher.git    # or your fork
+git clone https://github.com/Greeg0ry/tvOS-Launcher.git
 cd tvOS-Launcher
 ./build.sh                                                 # → build/tvos-home.apk
 VERSION_CODE=88 VERSION_NAME=7.5 ./build.sh                 # release builds set a version
@@ -75,9 +75,8 @@ adb install -r build/tvos-home.apk
 adb shell am start -n com.techgenius.tvoslauncher/.MainActivity
 ```
 
-3. First launch runs the setup pages. To make tvOS Launcher the home screen, finish setup (it offers this),
-   or on Google TV devices where the stock launcher always wins:
-   `adb shell pm disable-user --user 0 com.google.android.tvlauncher` (undo with `pm enable`).
+3. On first launch, choose a language and select Get Started. Choose tvOS Launcher as the default
+   Home app in Android settings. Optional features request their permissions when needed.
 
 More on installing and permissions: [install.md](install.md).
 
@@ -112,7 +111,7 @@ Open any screen without clicking through the UI:
 | `adb shell am start -n com.techgenius.tvoslauncher/.MainActivity --es panel search --es q panchayat` | Search, with a query typed in |
 | `adb shell am start -n com.techgenius.tvoslauncher/.MainActivity --ez pick_profile true` | Profile switcher |
 | `adb shell am start -n com.techgenius.tvoslauncher/.SettingsActivity --es page "Top Shelf"` | A Settings page by its title |
-| `adb shell am start -n com.techgenius.tvoslauncher/.SetupActivity --ei step 3` | Setup page 0–7 |
+| `adb shell am start -n com.techgenius.tvoslauncher/.SetupActivity` | One-screen language and start setup |
 | `adb shell am start -n com.techgenius.tvoslauncher/.SetupActivity --ez skip true` | Marks setup as done |
 | `adb shell am start -n com.techgenius.tvoslauncher/.SettingsActivity --es tmdb_token <key>` | Sets a TMDB key |
 | `adb shell am start -n com.techgenius.tvoslauncher/.MainActivity --es perf weather` | Hides one layer to measure its GPU cost (`status`, `hero`, `dockglass`, `shadows`; `reset` restores) |
@@ -128,5 +127,26 @@ Useful logs: `adb logcat -s TvHome` (tvOS Launcher's own messages) and
 | `javac not found` | Install JDK 17+ or set `JAVA_HOME` |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | The installed copy was signed with a different key (e.g. a release build): `adb uninstall com.techgenius.tvoslauncher` first (this clears its settings) |
 | `adb: device offline` / `unauthorized` | Accept the prompt on the TV; `adb disconnect` then `adb connect` again |
-| Home button still opens the old launcher | Finish setup's *Make tvOS Launcher the Home Screen*, or see install.md |
+| Home button still opens the old launcher | Choose the default launcher in Android settings; see install.md |
 | Install over Wi-Fi is very slow | Normal for 1 MB+ over a busy network; it finishes — don't wrap it in fixed sleeps |
+
+## Device integration checks
+
+With a debug-signed build installed and the initial start screen completed:
+
+```powershell
+./tools/check-home.ps1
+./tools/check-home.ps1 -Previews
+./tools/check-home.ps1 -Navigation
+./tools/check-home.ps1 -SettingsLayout
+./tools/check-home.ps1 -Presentation
+./tools/check-home.ps1 -PerformanceOnly
+./tools/check-home.ps1 -Screenshots
+```
+
+Set `JAVA_HOME` and `ANDROID_HOME` for the local toolchain. `-Classes` selects an alternative
+compiled class directory; `-Device` selects a specific ADB target. The temporary check APK is
+removed after each run. Presentation fixtures never enter the saved playlist. Screenshot mode
+captures actual app screens into `docs/screenshots` without changing saved settings. Preview checks
+exercise permission decisions with isolated preferences and foreground loading while the general IO
+queue is blocked; they do not grant or revoke the user's permissions.

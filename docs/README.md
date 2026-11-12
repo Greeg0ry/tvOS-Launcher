@@ -1,15 +1,11 @@
 # tvOS Launcher documentation
 
-tvOS Launcher (`com.techgenius.tvoslauncher`) replaces the Android TV home screen with one modelled on
-Apple tvOS 26. Every element was measured against Apple's own tvOS 26 screenshots and the Human
-Interface Guidelines, then tuned to run at 60 fps on a low-end Mali-450 GPU.
+tvOS Launcher replaces the Android TV Home screen with an Apple TV style app grid,
+app-specific previews, glass controls and built-in screen savers.
 
-| | |
-|---|---|
-| ![Home with suggestions](images/home-dock-glass.jpg) | ![Carousel focused](images/carousel-focused.jpg) |
-| Home: suggestions behind the glass dock | Top shelf focused: dock slides away |
-| ![Home with wallpaper](images/home-wallpaper.jpg) | ![Options menu](images/options-menu.jpg) |
-| Below the dock: launcher background | Options menu (hold OK on an app) |
+[Current screenshots](screenshots/README.md) · [Features](features.md)
+
+![Home](screenshots/home.png)
 
 ## Contents
 
@@ -28,10 +24,10 @@ Interface Guidelines, then tuned to run at 60 fps on a low-end Mali-450 GPU.
 
 | Area | What it does |
 |---|---|
-| Dock & grid | Frosted Liquid Glass dock; 5:3 cards, 6 per row; 1.2× focus lift; tvOS zoom-to-open |
-| Carousel | Continue Watching first, then Indian news and rotating recommendations (JustWatch, TMDB or Stremio); full screen when idle |
-| Search | Apps, settings and inputs instantly; movies and shows on every service in India with Open / Get; Hindi keyboard, dictation; hold Back to open |
-| Profiles | Up to 3, unique emoji avatars; separate layout, background and history; picker on wake |
+| Dock & grid | Frosted Liquid Glass dock; 5:3 cards, 5 per row; 1.2× focus lift; tvOS zoom-to-open |
+| Carousel | Published previews and available recommendations for the selected first-row app; Up opens the full-screen preview |
+| Search | Apps, settings, inputs, movies and shows; Russian and English keyboards, dictation; hold Back to open |
+| Profiles | Up to 3, unique emoji avatars; separate app layout and history; picker on wake |
 | Control Center | Sleep, Wi-Fi, Do Not Disturb, audio, sleep timer, Bluetooth, accessibility, settings, search |
 | Presentation | Browser upload of images/videos/webpages, looping full-screen playback, start on boot |
-| Settings | A page per section, opened from the gear in Control Center; first-time setup pages |
+| Settings | A page per section, opened from the gear in Control Center; one-screen initial setup |

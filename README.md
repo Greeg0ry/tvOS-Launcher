@@ -1,26 +1,47 @@
-# tvOS Launcher RU
+# tvOS Launcher
 
-Лаунчер для Android TV и ТВ-приставок с интерфейсом в стиле tvOS: приложения, часы, погода и управление с пульта. Поддерживает русский и английский языки. Форк [tvOS Launcher](https://github.com/techgenius1/tvOS-Launcher). Первая целевая приставка — **X4Q Pro, Android 11**; проверка на устройстве ещё предстоит.
+Лаунчер для Android TV с интерфейсом в стиле Apple TV, управлением с пульта и поддержкой русского и английского языков.
 
-![Главный экран tvOS Launcher (скриншот оригинального проекта)](screenshots_en/Home.png)
+![Главный экран](docs/screenshots/home.png)
+
+## Возможности
+
+- Стеклянный док и общий список приложений с прокруткой вниз.
+- Превью выбранного приложения в первом ряду, если оно публикует соответствующие данные.
+- Поиск, погода, профили и панель быстрого управления.
+- Заставки с часами и природными сценами.
+- Режим презентации: изображения, видео и веб-страницы с управлением из браузера.
+- Первоначальная настройка на одном экране.
+
+| Приложения | Панель управления |
+|---|---|
+| ![Сетка приложений](docs/screenshots/apps.png) | ![Панель управления](docs/screenshots/control-center.png) |
+
+[Все скриншоты](docs/screenshots/README.md)
 
 ## Установка
 
-1. Скачайте `tvos-home.apk` из [релизов форка](https://github.com/Greeg0ry/tvOS-Launcher/releases). Перенесите APK на приставку и откройте файловым менеджером, разрешив ему установку из неизвестных источников.
-2. Откройте **tvOS Launcher**, выберите **Русский** и пройдите первоначальную настройку. Дополнительные разрешения нужны только для соответствующих функций.
-3. В системных настройках выберите **tvOS Launcher** приложением главного экрана. Названия меню зависят от прошивки.
+1. Скачайте APK из [релизов](https://github.com/Greeg0ry/tvOS-Launcher/releases) и установите его на Android TV.
+2. Откройте **tvOS Launcher**, выберите язык и нажмите **Начать**.
+3. Выберите лаунчер приложением главного экрана в настройках Android TV.
 
-Через ADB (отладка включена, компьютер и приставка в одной сети):
+Установка через ADB:
 
 ```sh
-adb connect IP_ПРИСТАВКИ:5555
 adb install -r tvos-home.apk
-adb shell am start -n com.techgenius.tvoslauncher/.MainActivity --es lang ru
-adb shell cmd package set-home-activity --user 0 com.techgenius.tvoslauncher/.MainActivity
+adb shell am start -n com.techgenius.tvoslauncher/.MainActivity
 ```
 
-Для первой установки на X4Q Pro оставьте штатный лаунчер включённым. Сначала проверьте кнопку Home, запуск после перезагрузки и работу пульта. Для выбора обоев с USB и восстановления настроек на Android 11 может понадобиться разрешение «Доступ ко всем файлам».
+## Сборка
 
-Если установлен оригинальный tvOS Launcher, экспортируйте настройки и удалите его перед установкой форка: подписи APK различаются. Для обновлений форка сохраняйте тот же ключ подписи.
+Нужны JDK 17+ и Android SDK с `build-tools;34.0.0` и `platforms;android-34`.
 
-Сборка из исходников: JDK 17+, Android SDK (`build-tools;34.0.0`, `platforms;android-34`), затем `bash build.sh` или `powershell -ExecutionPolicy Bypass -File .\build.ps1`. APK: `build/tvos-home.apk`.
+```sh
+bash build.sh
+```
+
+Для Windows: `powershell -ExecutionPolicy Bypass -File .\build.ps1`. Готовый APK: `build/tvos-home.apk`.
+
+[Документация](docs/README.md) · [Лицензия Apache 2.0](LICENSE)
+
+Основано на [techgenius1/tvOS-Launcher](https://github.com/techgenius1/tvOS-Launcher).

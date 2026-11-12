@@ -179,13 +179,6 @@ public final class Scenes {
             68f, 190f, 48f,
             45f, 52f, false);
 
-    public static final String[][] CLASSIC_GRADIENTS = {
-        {"grad:aurora", "Aurora"},
-        {"grad:midnight", "Midnight"},
-        {"grad:ocean", "Ocean"},
-        {"grad:sunset", "Sunset"},
-        {"grad:graphite", "Graphite"}
-    };
 
     public static String customId(int slot) {
         int s = Math.max(1, slot);
@@ -266,13 +259,6 @@ public final class Scenes {
         return hash >= 0 ? id.substring(0, hash) : id;
     }
 
-    public static final String[][] CLASSIC_PHOTOS = {
-        {"tessellated-pavement.jpg", "Tessellated Pavement"},
-        {"grose-valley.jpg", "Grose Valley"},
-        {"albury-storm.jpg", "Albury Storm"},
-        {"aresquiers-beach.jpg", "Aresquiers Beach"},
-        {"vang-vieng-sunset.jpg", "Vang Vieng Sunset"}
-    };
 
     private Scenes() { }
 
@@ -288,23 +274,6 @@ public final class Scenes {
         if (REDDIT_WALLPAPER_ID.equals(id)) return REDDIT_WALLPAPER_SPEC;
         if (LOCK_CUSTOM_ID.equals(id)) return LOCK_CUSTOM_SPEC;
         if (LOCK_FOLDER_SHUFFLE_ID.equals(id)) return LOCK_FOLDER_SHUFFLE_SPEC;
-        if (id.startsWith("photo:")) {
-            String file = id.substring("photo:".length());
-            for (String[] row : CLASSIC_PHOTOS) {
-                if (row[0].equals(file)) {
-                    return new Spec(id, row[1], "backgrounds/" + file, null, null,
-                            false, false, false, 68f, 190f, 48f, 45f, 52f, false);
-                }
-            }
-        }
-        if (id.startsWith("grad:")) {
-            for (String[] row : CLASSIC_GRADIENTS) {
-                if (row[0].equals(id)) {
-                    return new Spec(id, row[1], null, null, null,
-                            false, false, false, 68f, 190f, 48f, 45f, 52f, false);
-                }
-            }
-        }
         for (Spec s : ALL) {
             if (s.id.equals(id)) return s;
         }
@@ -337,7 +306,7 @@ public final class Scenes {
     }
 
     public static String getLook(Context c) {
-        return prefs(c).getString("look_mode", LOOK_SCENES);
+        return LOOK_CLASSIC;
     }
 
     public static boolean isScenesLook(Context c) {
@@ -611,7 +580,7 @@ public final class Scenes {
     // ─── Classic Appearance Big Clock & Clock Alignment ───
 
     public static boolean isClassicBigClockEnabled(Context c) {
-        return prefs(c).getBoolean("classic_big_clock", true);
+        return false;
     }
 
     public static void setClassicBigClockEnabled(Context c, boolean enabled) {
@@ -671,8 +640,6 @@ public final class Scenes {
     public static List<String> getAllLockSceneCandidates() {
         List<String> all = new ArrayList<>();
         for (Spec s : ALL) all.add(s.id);
-        for (String[] row : CLASSIC_PHOTOS) all.add("photo:" + row[0]);
-        for (String[] row : CLASSIC_GRADIENTS) all.add(row[0]);
         for (String cid : CUSTOM_IDS) all.add(cid);
         all.add(LOCK_CUSTOM_ID);
         all.add(LOCK_FOLDER_SHUFFLE_ID);
@@ -680,12 +647,13 @@ public final class Scenes {
     }
 
     public static List<String> getEnabledLockSceneIds(Context c) {
-        String defaultLock = "night,golden,water,fog,dawn,photo:tessellated-pavement.jpg,photo:grose-valley.jpg,photo:albury-storm.jpg,photo:aresquiers-beach.jpg,photo:vang-vieng-sunset.jpg";
+        String defaultLock = "night,golden,water,fog,dawn";
         String raw = prefs(c).getString("lock_scene_enabled", defaultLock);
         List<String> enabled = new ArrayList<>();
         for (String part : raw.split(",")) {
             String p = part.trim();
             if (p.isEmpty()) continue;
+            if (p.startsWith("photo:") || p.startsWith("grad:")) continue;
             int cSlot = customSlotFromId(p);
             if (cSlot > 0 && !CustomMedia.hasCustomSceneWallpaper(c, cSlot)) continue;
             if (LOCK_CUSTOM_ID.equals(p) && !CustomMedia.hasCustomLockWallpaper(c)) continue;
@@ -2024,7 +1992,7 @@ public final class Scenes {
 
         /**
          * Clock digits rendered as the same Liquid Glass material used by the dock and the
-         * Continue Watching / widget cards: blurred wallpaper body with an adaptive tint, a soft
+         * Continue Watching cards: blurred scene body with an adaptive tint, a soft
          * top glow, a diagonal specular rim and a gentle drop shadow for separation.
          */
         private void drawDockGlassClock(Canvas canvas, String timeStr, float startX, float baselineY,

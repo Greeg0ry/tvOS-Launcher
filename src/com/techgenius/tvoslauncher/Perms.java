@@ -223,16 +223,11 @@ final class Perms {
      */
     static void requestDefaultHome(Activity a) {
         if (a == null) return;
-        // If inside SettingsActivity or SetupActivity, open the native Default Home setup sub-menu
+        // Settings offers the device-specific Default Home options.
         if (a instanceof SettingsActivity) {
             ((SettingsActivity) a).openDefaultHomeSubMenu();
             return;
         }
-        if (a instanceof SetupActivity) {
-            ((SetupActivity) a).openDefaultHomeSubMenu();
-            return;
-        }
-
         String[] items = {
             I18n.t(a, "Set Default via Local ADB (Recommended)"),
             I18n.t(a, "Disable Stock TV Launchers (TCL / Philips / Google TV)"),

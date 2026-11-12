@@ -6,7 +6,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /** Keeps one pending task and delivers only the current generation, disposing obsolete results. */
-final class LatestTask<T> {
+public final class LatestTask<T> {
     private final Executor worker, delivery;
     private final Consumer<T> discard;
     private long generation;
@@ -22,11 +22,11 @@ final class LatestTask<T> {
         }
     }
 
-    LatestTask(Executor worker, Executor delivery, Consumer<T> discard) {
+    public LatestTask(Executor worker, Executor delivery, Consumer<T> discard) {
         this.worker = worker; this.delivery = delivery; this.discard = discard;
     }
 
-    synchronized void submit(Callable<T> load, Consumer<T> accept) {
+    public synchronized void submit(Callable<T> load, Consumer<T> accept) {
         pending = new Job<>(++generation, load, accept);
         if (working) return;
         working = true;
@@ -34,7 +34,7 @@ final class LatestTask<T> {
         catch (RejectedExecutionException e) { working = false; pending = null; }
     }
 
-    synchronized void cancel() { generation++; pending = null; }
+    public synchronized void cancel() { generation++; pending = null; }
 
     private void drain() {
         for (;;) {

@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.techgenius.tvoslauncher.homechecks">
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+    <application android:label="Home integration checks" android:testOnly="true" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.HomeScreenChecks" android:targetPackage="com.techgenius.tvoslauncher" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.PreviewLoadingChecks" android:targetPackage="com.techgenius.tvoslauncher" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.HomeNavigationChecks" android:targetPackage="com.techgenius.tvoslauncher" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.SettingsLayoutChecks" android:targetPackage="com.techgenius.tvoslauncher" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.HomeScreenScreenshots" android:targetPackage="com.techgenius.tvoslauncher" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.present.PresentationImageChecks" android:targetPackage="com.techgenius.tvoslauncher" />
+</manifest>

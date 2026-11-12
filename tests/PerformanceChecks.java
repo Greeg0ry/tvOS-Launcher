@@ -4,9 +4,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /** Deterministic checks of the same scheduling and cache modules used by the launcher. */
 public final class PerformanceChecks {
@@ -36,37 +33,6 @@ public final class PerformanceChecks {
         images.clear();
         equal(0L, images.weight());
         equal(fullHd, borrowed);
-
-        Queue work = new Queue(), ui = new Queue();
-        AtomicLong clock = new AtomicLong(100);
-        AtomicInteger loads = new AtomicInteger(), callbacks = new AtomicInteger();
-        RequestGroup<String> requests = new RequestGroup<>(work, ui, clock::get, 30_000);
-        for (int i = 0; i < 20; i++) requests.request("same", false,
-                () -> { loads.incrementAndGet(); return "value"; }, value -> {
-                    equal("value", value); callbacks.incrementAndGet();
-                });
-        equal(1, work.tasks.size());
-        work.runAll(); ui.runAll();
-        equal(1, loads.get()); equal(20, callbacks.get());
-        requests.request("failure", false, () -> { loads.incrementAndGet(); return null; }, null);
-        work.runAll();
-        for (int i = 0; i < 20; i++) requests.request("failure", false, () -> "unexpected", null);
-        equal(0, work.tasks.size());
-        requests.request("failure", true, () -> "recovered", value -> equal("recovered", value));
-        work.runAll(); ui.runAll();
-        clock.addAndGet(30_001);
-        requests.request("failure", false, () -> "next", null);
-        equal(1, work.tasks.size()); work.runAll();
-        RequestGroup<String> rejected = new RequestGroup<>(task -> { throw new RejectedExecutionException(); },
-                ui, clock::get, 10);
-        rejected.request("rejected", false, () -> "never", value -> equal(true, value == null));
-        ui.runAll();
-        requests.request("timeout", false, () -> null, null); work.runAll();
-        requests.request("timeout", false, () -> "too early", null);
-        equal(0, work.tasks.size());
-        clock.addAndGet(30_001);
-        requests.request("timeout", false, () -> "retry", value -> equal("retry", value));
-        equal(1, work.tasks.size()); work.runAll(); ui.runAll();
 
         Queue background = new Queue(), delivery = new Queue();
         List<String> accepted = new ArrayList<>(), discarded = new ArrayList<>();

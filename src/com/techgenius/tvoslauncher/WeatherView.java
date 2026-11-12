@@ -7,6 +7,8 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Shader;
+import android.text.TextPaint;
+import android.text.TextUtils;
 import android.view.View;
 
 /**
@@ -21,7 +23,7 @@ final class WeatherView extends View {
     final boolean full;
     final float u;
     Weather.Data data;
-    private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
+    private final TextPaint p = new TextPaint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
     private final Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final android.graphics.Typeface regular, medium, semibold;
     private final RectF r = new RectF();
@@ -51,7 +53,7 @@ final class WeatherView extends View {
         else drawCompact(c);
     }
 
-    /** A small glass pill: icon, temperature, then condition over place and high/low. */
+    /** A small glass pill: current temperature, condition and place, each inside its bounds. */
     private void drawCompact(Canvas c) {
         Context ctx = getContext();
         Weather.Data d = data;
@@ -60,9 +62,21 @@ final class WeatherView extends View {
         float tx = pad + is + 6 * u;
         float tw = text(c, d.temp + "\u00b0", tx, h / 2f + 8 * u, 22, regular, 1f, Paint.Align.LEFT);
         float cx = tx + tw + 9 * u;
-        text(c, Weather.describe(ctx, d.code, d.day), cx, h / 2f - 2 * u, 11.5f, semibold, 1f, Paint.Align.LEFT);
-        text(c, (d.place.isEmpty() ? "" : d.place + "  ") + I18n.t(ctx, "H:") + d.max + "\u00b0 " + I18n.t(ctx, "L:") + d.min + "\u00b0",
-                cx, h / 2f + 12 * u, 11.5f, medium, 0.7f, Paint.Align.LEFT);
+        float available = Math.max(0, getWidth() - pad - cx);
+        fittedText(c, Weather.describe(ctx, d.code, d.day), cx, h / 2f - 2 * u, available, semibold, 1f);
+        fittedText(c, d.place, cx, h / 2f + 12 * u, available, medium, 0.7f);
+    }
+
+    /** Ellipsize without shrinking the minimum TV text size or drawing outside the glass. */
+    private void fittedText(Canvas c, String value, float x, float y, float width,
+                            android.graphics.Typeface typeface, float alpha) {
+        p.setTypeface(typeface);
+        p.setTextSize(11.5f * u);
+        p.setTextAlign(Paint.Align.LEFT);
+        p.setColor(0xFFFFFFFF);
+        p.setAlpha(Math.round(255 * alpha));
+        CharSequence fitted = TextUtils.ellipsize(value, p, width, TextUtils.TruncateAt.END);
+        c.drawText(fitted, 0, fitted.length(), x, y, p);
     }
 
     private void drawFull(Canvas c) {

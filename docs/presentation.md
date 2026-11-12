@@ -1,6 +1,5 @@
 # Presentation mode
 
-<img src="images/presentation-tile.jpg" alt="Presentation icon" width="240" align="right">
 
 Presentation turns the TV into a signage screen you control from any browser on the same network.
 Upload images and videos, add webpages, arrange them in a playlist, and the TV loops through them
@@ -10,12 +9,6 @@ full screen. It is a built-in feature of tvOS Launcher, ported from **PB Markete
 **Removed from the original** (by request): the admin/upload lock PIN, the debug telemetry panel
 and the APK self-updater. **Kept:** browser pairing with a 6-digit code shown on the TV.
 
-| | |
-|---|---|
-| ![Library](images/web-library.jpg) | ![Playlist](images/web-playlist.jpg) |
-| Library: drag & drop uploads, thumbnails | Playlist: slide navigator, live preview, settings |
-| ![Pairing](images/web-pair.jpg) | ![Phone](images/web-phone.jpg) |
-| Pairing with the TV's code | On a phone |
 
 ## Turn it on
 
@@ -65,7 +58,7 @@ The page follows the device's light or dark mode and works on phones.
 
 Playback rules (unchanged from the original):
 
-- **Images** stay for their duration (default 10 s).
+- **Images** are decoded on a worker and bounded by both screen dimensions before display. The previous frame stays visible while the next image loads; its duration starts after it is ready. Corrupt or unsupported images show a skip message instead of a blank slide, then advance automatically (default image duration: 10 s).
 - **Videos** play to the end (muted by default), then advance.
 - **Webpages** load at a 1920-px-wide desktop viewport scaled to the screen; with auto-scroll they
   scroll at the set speed, pausing every ~85% of a screen, then advance; without it they stay for
@@ -73,9 +66,6 @@ Playback rules (unchanged from the original):
   so modern sites render correctly.
 - A slide that fails shows a message and is skipped after 5 seconds.
 - With no slides, the TV shows one centred screen: the Presentation icon, "Nothing to present yet", and the QR code, address and pairing code.
-
-![Empty presentation](images/presentation-empty.jpg)
-
 ## Web API
 
 All calls except `/api/info` and `/api/pair` need `Authorization: Bearer <token>` (or `?token=`

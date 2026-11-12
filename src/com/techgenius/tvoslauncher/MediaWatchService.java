@@ -654,31 +654,44 @@ public class MediaWatchService extends NotificationListenerService {
         }
 
         static List<Suggestions.Item> queryTvProviderForPackage(Context c, String pkg, int max) {
+            return queryTvProviderForPackage(c, pkg, max, true);
+        }
+
+        /** App-published previews are available independently of the Continue Watching switch. */
+        static List<Suggestions.Item> queryPreviewProgramsForPackage(Context c, String pkg, int max) {
+            return queryTvProviderForPackage(c, pkg, max, false);
+        }
+
+        private static List<Suggestions.Item> queryTvProviderForPackage(Context c, String pkg, int max,
+                                                                       boolean includeWatchNext) {
             List<Suggestions.Item> out = new ArrayList<>();
             if (c == null || pkg == null || pkg.isEmpty() || max <= 0) return out;
             List<RawTvProgram> rows = new ArrayList<>();
 
             for (String queryPkg : packageCandidates(pkg)) {
-                // 1. Query watch_next_program?package=<queryPkg>
-                android.database.Cursor wnCur = null;
-                try {
-                    android.net.Uri wnUri = android.net.Uri.parse("content://android.media.tv/watch_next_program")
-                            .buildUpon().appendQueryParameter("package", queryPkg).build();
-                    wnCur = c.getContentResolver().query(wnUri, null, null, null, null);
-                    if (wnCur != null) {
-                        while (wnCur.moveToNext()) {
-                            if (colInt(wnCur, "browsable", 1) == 0) continue;
-                            RawTvProgram r = parseTvProgramRow(wnCur, pkg, "", "", 0);
-                            if (r != null) rows.add(r);
+                // 1. Watch Next is optional; published app previews do not require it.
+                if (includeWatchNext) {
+                    android.database.Cursor wnCur = null;
+                    try {
+                        android.net.Uri wnUri = android.net.Uri.parse("content://android.media.tv/watch_next_program")
+                                .buildUpon().appendQueryParameter("package", queryPkg).build();
+                        wnCur = c.getContentResolver().query(wnUri, null, null, null, null);
+                        if (wnCur != null) {
+                            while (wnCur.moveToNext()) {
+                                String owner = colStr(wnCur, "package_name");
+                                if (!owner.isEmpty() && !matchesPackage(pkg, owner)) continue;
+                                if (colInt(wnCur, "browsable", 1) == 0) continue;
+                                RawTvProgram r = parseTvProgramRow(wnCur, pkg, "", "", 0);
+                                if (r != null) rows.add(r);
+                            }
+                        }
+                    } catch (Throwable ignored) {
+                    } finally {
+                        if (wnCur != null) {
+                            try { wnCur.close(); } catch (Throwable ignored) { }
                         }
                     }
-                } catch (Throwable ignored) {
-                } finally {
-                    if (wnCur != null) {
-                        try { wnCur.close(); } catch (Throwable ignored) { }
-                    }
                 }
-
                 // 2. Query channel?package=<queryPkg> to map channel_id -> display_name & app_link_intent_uri
                 Map<Long, String> channelNames = new HashMap<>();
                 Map<Long, String> channelLinks = new HashMap<>();
@@ -721,6 +734,8 @@ public class MediaWatchService extends NotificationListenerService {
                     ppCur = c.getContentResolver().query(ppUri, null, null, null, null);
                     if (ppCur != null) {
                         while (ppCur.moveToNext()) {
+                            String owner = colStr(ppCur, "package_name");
+                            if (!owner.isEmpty() && !matchesPackage(pkg, owner)) continue;
                             if (colInt(ppCur, "browsable", 1) == 0) continue;
                             long cid = colLong(ppCur, "channel_id", -1L);
                             String chName = channelNames.getOrDefault(cid, "");
@@ -755,7 +770,9 @@ public class MediaWatchService extends NotificationListenerService {
 
             for (RawTvProgram r : rows) {
                 if (out.size() >= max) break;
-                out.add(toSuggestionItem(r));
+                Suggestions.Item item = toSuggestionItem(r);
+                if (!includeWatchNext) item.type = "preview";
+                out.add(item);
             }
             return out;
         }

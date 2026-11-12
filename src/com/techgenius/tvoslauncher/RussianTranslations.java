@@ -7,6 +7,16 @@ final class RussianTranslations {
     private RussianTranslations() { }
 
     static void addTo(Map<String, String> map) {
+        map.put("Device settings", "\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0430");
+        map.put("Source code", "\u0418\u0441\u0445\u043e\u0434\u043d\u044b\u0439 \u043a\u043e\u0434");
+        map.put("Original project", "\u0418\u0441\u0445\u043e\u0434\u043d\u044b\u0439 \u043f\u0440\u043e\u0435\u043a\u0442");
+        map.put("Choose a language and start.", "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u044f\u0437\u044b\u043a \u0438 \u043d\u0430\u0447\u0438\u043d\u0430\u0439\u0442\u0435");
+        map.put("You can change language and other options in Settings.", "\u042f\u0437\u044b\u043a \u0438 \u0434\u0440\u0443\u0433\u0438\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u043c\u043e\u0436\u043d\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u0442\u044c \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445");
+        map.put("Image failed to load: {0}", "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435: {0}");
+        map.put("Get", "\u0423\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c");
+        map.put("Remove", "\u0423\u0431\u0440\u0430\u0442\u044c");
+        map.put("Removed {0}", "\u0423\u0431\u0440\u0430\u043d\u043e: {0}");
+        map.put("Remove from Continue Watching", "\u0423\u0431\u0440\u0430\u0442\u044c \u0438\u0437 \u00ab\u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u00bb");
         part0(map);
         part1(map);
         part2(map);
@@ -77,7 +87,6 @@ final class RussianTranslations {
         map.put("ADB operating mode", "Режим работы ADB");
         map.put("ADB paired and all permissions granted!", "ADB подключён, все разрешения выданы!");
         map.put("ALL SYSTEM APPS ({0} — TAP TO DISABLE / ENABLE)", "ВСЕ СИСТЕМНЫЕ ПРИЛОЖЕНИЯ ({0} — OK ДЛЯ ВКЛ. / ВЫКЛ.)");
-        map.put("AMBIENT THEMES", "ЦВЕТОВЫЕ ТЕМЫ");
         map.put("APPLICATION", "ПРИЛОЖЕНИЕ");
         map.put("APPLICATIONS", "ПРИЛОЖЕНИЯ");
         map.put("About", "О приложении");
@@ -91,19 +100,11 @@ final class RussianTranslations {
         map.put("Active — Set as default home launcher", "Назначен главным экраном");
         map.put("Ad-blocking Private DNS (AdGuard)", "Блокировка рекламы Private DNS (AdGuard)");
         map.put("Add", "Добавить");
-        map.put("Add Favorite Football Team", "Добавить избранную команду");
-        map.put("Add Subreddit", "Добавить сообщество Reddit");
         map.put("Add User", "Добавить профиль");
         map.put("Add a person", "Добавить профиль");
         map.put("Add a person…", "Добавить профиль…");
-        map.put("Add as many custom wallpapers as you want without any limit", "Добавляйте свои обои без ограничения количества");
-        map.put("Add custom subreddit…", "Добавить сообщество Reddit…");
-        map.put("Add favorite football team…", "Добавить избранную футбольную команду…");
         map.put("Add images, videos or webpages from a phone or computer on the same Wi-Fi.", "Добавьте изображения, видео или веб-страницы с телефона или компьютера в той же сети Wi-Fi.");
         map.put("Add new button to remap", "Добавить кнопку");
-        map.put("Add new wallpaper…", "Добавить обои…");
-        map.put("Added custom wallpaper #{0}.", "Добавлены обои №{0}.");
-        map.put("Added favorite team: {0}", "Добавлена команда: {0}");
         map.put("Adds a Presentation card to Home", "Добавляет карточку «Презентация» на главный экран");
         map.put("Advanced", "Дополнительно");
         map.put("Advanced ›", "Дополнительно ›");
@@ -125,7 +126,6 @@ final class RussianTranslations {
         map.put("Ambient Mode", "Заставка");
         map.put("Ambient Mode / Lock Screen", "Заставка / экран блокировки");
         map.put("Ambient Mode / StandBy", "Заставка / режим ожидания");
-        map.put("Ambient colour themes", "Цветовые темы");
         map.put("Ambient colour themes…", "Цветовые темы…");
         map.put("Android Accessibility Suite / TalkBack (optional)", "Android Accessibility Suite / TalkBack (необязательно)");
         map.put("Android TV Remote Service (optional — keep if you use Google TV phone remote)", "Android TV Remote Service (оставьте, если используете пульт Google TV на телефоне)");
@@ -152,8 +152,6 @@ final class RussianTranslations {
         map.put("Audio Track (222)", "Звуковая дорожка (222)");
         map.put("Aurora", "Северное сияние");
         map.put("Auto", "Авто");
-        map.put("Auto-change interval", "Интервал смены");
-        map.put("Auto-changing 1080p/4K wallpapers from your selected subreddits", "Автоматическая смена обоев 1080p/4K из выбранных сообществ Reddit");
         map.put("Auto-launch Lock Screen when idle", "Показывать экран блокировки при бездействии");
         map.put("Automatic", "Автоматически");
         map.put("Automatic (Sync with UI language)", "Автоматически (по языку интерфейса)");
@@ -197,24 +195,19 @@ final class RussianTranslations {
         map.put("Button Mapper accessibility service", "Служба переназначения кнопок пульта");
         map.put("Button Mapper service", "Служба переназначения кнопок");
         map.put("Button mapper", "Кнопки пульта");
-        map.put("By default, Most Watched automatically syncs with your selected UI language. Selecting any country above switches to custom multi-country mode.", "По умолчанию популярные фильмы выбираются по языку интерфейса. Выбор стран выше включает ручной режим.");
         map.put("CLASSIC BACKGROUND", "КЛАССИЧЕСКИЙ ФОН");
         map.put("CLASSIC CLOCK & WEATHER", "ЧАСЫ И ПОГОДА В КЛАССИЧЕСКОМ РЕЖИМЕ");
         map.put("CLASSIC WALLPAPERS", "КЛАССИЧЕСКИЕ ОБОИ");
         map.put("CLEANYOURTV (BETA)", "CLEANYOURTV (БЕТА)");
         map.put("CLOSEST MATCHES ({0} APPS SCANNED)", "БЛИЖАЙШИЕ СОВПАДЕНИЯ (ПРОВЕРЕНО ПРИЛОЖЕНИЙ: {0})");
         map.put("CONTROL PANEL ITEMS (SHOW / HIDE)", "ЭЛЕМЕНТЫ ПАНЕЛИ УПРАВЛЕНИЯ");
-        map.put("COUNTRIES (SELECT ONE OR MULTIPLE)", "СТРАНЫ (МОЖНО ВЫБРАТЬ НЕСКОЛЬКО)");
         map.put("CUSTOM & FOLDER SHUFFLE", "СВОИ ОБОИ И ПАПКА");
         map.put("CUSTOM WALLPAPER", "СВОИ ОБОИ");
     }
 
     private static void part2(Map<String, String> map) {
-        map.put("CUSTOM WALLPAPER MODE", "РЕЖИМ СВОИХ ОБОЕВ");
-        map.put("CUSTOM WALLPAPERS (UNLIMITED)", "СВОИ ОБОИ (БЕЗ ОГРАНИЧЕНИЙ)");
         map.put("Caffeine disabled.", "Caffeine выключен.");
         map.put("Caffeine enabled — TV will stay awake and block automatic Ambient / sleep mode.", "Caffeine включён: автоматическая заставка и сон заблокированы.");
-        map.put("Calculation Method", "Метод расчёта");
         map.put("Can't open {0}", "Не удалось открыть {0}");
         map.put("Can't switch to {0}", "Не удалось переключиться на {0}");
         map.put("Cancel", "Отмена");
@@ -263,7 +256,6 @@ final class RussianTranslations {
         map.put("Choose folder…", "Выбрать папку…");
         map.put("Choose how to grant permissions", "Выберите способ предоставления разрешений");
         map.put("Choose how you want your Home Screen to look.", "Выберите внешний вид главного экрана.");
-        map.put("Choose image ›", "Выбрать изображение ›");
         map.put("Choose image…", "Выбрать изображение…");
         map.put("Choose new image…", "Выбрать новое изображение…");
         map.put("Choose tvOS Launcher when asked", "При запросе выберите tvOS Launcher");
@@ -272,7 +264,6 @@ final class RussianTranslations {
         map.put("Chromecast built-in / Google Cast receiver (optional — keep if you Cast from phone)", "Chromecast / Google Cast (оставьте, если транслируете с телефона)");
         map.put("City name, e.g. Istanbul", "Название города, например Москва");
         map.put("Classic", "Классический");
-        map.put("Classic Custom Wallpaper", "Свои обои для классического режима");
         map.put("Classic Top Shelf", "Верхняя полка классического режима");
         map.put("Classic Top Shelf content", "Содержимое классической верхней полки");
         map.put("Classic background", "Классический фон");
@@ -339,7 +330,6 @@ final class RussianTranslations {
         map.put("Create Your Profile", "Создайте профиль");
         map.put("Current place", "Текущее место");
         map.put("Current version", "Текущая версия");
-        map.put("Currently synced to: ", "Сейчас выбран регион: ");
         map.put("Custom", "Свой");
         map.put("Custom 2", "Свои обои №2");
         map.put("Custom 3", "Свои обои №3");
@@ -348,7 +338,6 @@ final class RussianTranslations {
         map.put("Custom Key Code (Enter Number…)", "Свой код кнопки (ввести число…)");
         map.put("Custom Lock Image", "Свои обои экрана блокировки");
         map.put("Custom Lock Screen image updated.", "Изображение экрана блокировки обновлено.");
-        map.put("Custom Wallpaper #", "Свои обои №");
         map.put("Custom background updated.", "Фон обновлён.");
         map.put("Custom image", "Своё изображение");
         map.put("Custom scene wallpaper updated.", "Обои сцены обновлены.");
@@ -356,7 +345,7 @@ final class RussianTranslations {
         map.put("Custom wallpaper mode", "Режим своих обоев");
         map.put("Custom wallpaper settings…", "Настройки своих обоев…");
         map.put("Custom {0}", "Свои обои №{0}");
-        map.put("DASHBOARD WIDGETS (4 HORIZONTAL TILES)", "ВИДЖЕТЫ (4 КАРТОЧКИ В РЯД)");
+
         map.put("DEFAULT LAUNCHER SETUP (TCL / PHILIPS / GOOGLE TV)", "НАСТРОЙКА ГЛАВНОГО ЭКРАНА (TCL / PHILIPS / GOOGLE TV)");
         map.put("DOCK", "ПАНЕЛЬ ПРИЛОЖЕНИЙ");
         map.put("DOCK SCALE (-50% TO +50%)", "РАЗМЕР ПАНЕЛИ (ОТ 50% ДО 150%)");
@@ -404,8 +393,6 @@ final class RussianTranslations {
         map.put("Disabling Package…", "Отключение пакета…");
         map.put("Disconnected (ADB Off)", "Нет подключения (ADB выключен)");
         map.put("Display", "Экран");
-        map.put("Displayed when no app is focused, when focus is on Settings / non-app elements, or when the focused app has no Continue Watching items.", "Отображаются, если приложение не выбрано, выбраны настройки или у приложения нет истории просмотра.");
-        map.put("Diyanet / Qafqaz (Regional)", "Диянет / Кавказ (региональный)");
         map.put("Do Not Disturb", "Не беспокоить");
         map.put("Dock size", "Размер панели приложений");
         map.put("Dock size set to {0}%.", "Размер панели: {0}%.");
@@ -426,7 +413,6 @@ final class RussianTranslations {
         map.put("Each scene stays", "Длительность сцены");
         map.put("Each wallpaper stays", "Длительность показа обоев");
         map.put("Easy Setup (Automatic via ADB)", "Простая настройка (автоматически через ADB)");
-        map.put("Egyptian General Authority", "Египетское управление");
         map.put("Emoji", "Эмодзи");
         map.put("Enable ADB & Switch", "Включить ADB и сменить режим");
         map.put("Enable ADB Debugging", "Включите отладку ADB");
@@ -434,7 +420,7 @@ final class RussianTranslations {
         map.put("Enable ADB for Persistent Mode?", "Включить постоянный ADB?");
         map.put("Enable Button Mapper in Accessibility…", "Включить кнопки пульта в специальных возможностях…");
         map.put("Enable Home Button Fix (Accessibility Remap)", "Перехватывать Home (специальные возможности)");
-        map.put("Enable Home Dashboard", "Виджеты на главном экране");
+
         map.put("Enable Keep Alive", "Включить автовосстановление");
         map.put("Enable Keep Alive?", "Включить автовосстановление?");
         map.put("Enable USB / Network Debugging in Developer Options", "Включите отладку по USB / сети в настройках разработчика");
@@ -443,7 +429,6 @@ final class RussianTranslations {
         map.put("Enable in Accessibility…", "Включить в Спец. возможностях…");
         map.put("Enable tvOS Launcher in Android TV Accessibility Settings so remapped remote buttons and the Control Panel overlay work over any app.", "Включите tvOS Launcher в специальных возможностях Android TV, чтобы переназначенные кнопки и Панель управления работали поверх любых приложений.");
         map.put("Enable via ADB", "Включить через ADB");
-        map.put("Enabled in shuffle", "Участвует в смене обоев");
         map.put("Enabling ({0}/{1}):\n{2}", "Включение ({0}/{1}):\n{2}");
         map.put("Enabling ADB debugging and switching to Persistent ADB Mode…", "Включение отладки и переход в режим постоянного ADB…");
         map.put("Enabling ADB debugging…", "Включение отладки ADB…");
@@ -456,7 +441,6 @@ final class RussianTranslations {
         map.put("FORECAST PROVIDER", "ИСТОЧНИК ПРОГНОЗА");
         map.put("Fajr", "Фаджр");
         map.put("Fast Forward", "Перемотка вперёд");
-        map.put("Fetching next Reddit wallpaper…", "Загрузка следующих обоев Reddit…");
         map.put("Fewer apps", "Свернуть");
         map.put("Filter", "Фильтр");
         map.put("Filter System Apps", "Фильтр системных приложений");
@@ -469,7 +453,6 @@ final class RussianTranslations {
         map.put("Folder Shuffle", "Смена обоев из папки");
         map.put("Folder shuffle", "Смена обоев из папки");
         map.put("Folder shuffle enabled: {0}", "Смена обоев из папки включена: {0}");
-        map.put("Football Matches", "Футбольные матчи");
         map.put("Found from your internet connection", "Определено по интернет-соединению");
         map.put("Found saved disabled-app data ({0} packages).\n\nRe-enable all {0} saved packages over ADB?", "Найден список отключённых пакетов ({0}).\n\nВключить все {0} пакетов через ADB?");
         map.put("Fox", "Лиса");
@@ -522,7 +505,7 @@ final class RussianTranslations {
         map.put("Guide Button", "Телепрограмма");
         map.put("H:", "Макс.:");
         map.put("HOME & PERMISSIONS", "ГЛАВНЫЙ ЭКРАН И РАЗРЕШЕНИЯ");
-        map.put("HOME SCREEN WIDGETS", "ВИДЖЕТЫ ГЛАВНОГО ЭКРАНА");
+
         map.put("HOURLY FORECAST", "ПОЧАСОВОЙ ПРОГНОЗ");
         map.put("HOW TO WATCH", "ГДЕ ПОСМОТРЕТЬ");
         map.put("Headlines from your city and the world", "Новости вашего города и мира");
@@ -543,14 +526,13 @@ final class RussianTranslations {
         map.put("Home button fix enabled.", "Перехват Home включён.");
         map.put("Home screen", "Главный экран");
         map.put("Home screen weather shortcut", "Погода на главном экране");
-        map.put("Home screen widget settings", "Настройки виджетов");
+
         map.put("Home settings", "Настройки главного экрана");
         map.put("Humidity ", "Влажность ");
         map.put("I Understand — Open Manual Debloat", "Понятно — открыть список");
         map.put("INPUTS APP ON DOCK", "ПРИЛОЖЕНИЕ ВХОДОВ В ДОКЕ");
         map.put("INSTALLED APPS", "УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ");
         map.put("INSTALLED SYSTEM LAUNCHERS ON THIS TV ({0})", "СИСТЕМНЫЕ ЛАУНЧЕРЫ НА УСТРОЙСТВЕ ({0})");
-        map.put("ISNA (North America)", "ISNA (Северная Америка)");
         map.put("Images, videos and webpages sent from any phone or computer on the same Wi-Fi. For everyone on this TV.", "Изображения, видео и веб-страницы с телефона или компьютера в той же сети Wi-Fi. Доступно всем профилям.");
         map.put("In Control Center (needs location access)", "В панели управления (нужен доступ к местоположению)");
         map.put("Included in rotation", "Участвует в смене сцен");
@@ -560,7 +542,6 @@ final class RussianTranslations {
         map.put("Inputs (Control Panel & Dock)", "Входы (Панель управления и док)");
         map.put("Install", "Установить");
         map.put("Installing update v{0} automatically via ADB…", "Автоматическая установка v{0} через ADB…");
-        map.put("Institute of Geophysics (Tehran)", "Институт геофизики (Тегеран)");
         map.put("Isha", "Иша");
         map.put("Its layout and Continue Watching list will be removed.", "Расположение приложений и список «Продолжить просмотр» будут удалены.");
         map.put("Just your background for now", "Пока только фон");
@@ -645,8 +626,6 @@ final class RussianTranslations {
         map.put("Monkey", "Обезьяна");
         map.put("More Apps", "Больше приложений");
         map.put("More apps", "Больше приложений");
-        map.put("Most Watched", "Самое популярное");
-        map.put("Most Watched countries", "Страны для популярных фильмов");
         map.put("Mostly Clear", "Почти ясно");
         map.put("Mostly Sunny", "Малооблачно");
         map.put("Move", "Переместить");
@@ -657,7 +636,6 @@ final class RussianTranslations {
         map.put("Move {0}  ·  Left/Right, OK when done", "Переместить {0}  ·  Влево/вправо, OK — готово");
         map.put("Movie", "Фильм");
         map.put("Movies & TV", "Фильмы и сериалы");
-        map.put("Muslim World League (MWL)", "Всемирная исламская лига (MWL)");
         map.put("Mute / Unmute (164)", "Вкл. / выкл. звук (164)");
         map.put("My Location", "Моё местоположение");
         map.put("NIGHT SCENES", "НОЧНЫЕ СЦЕНЫ");
@@ -671,7 +649,6 @@ final class RussianTranslations {
         map.put("Next Track", "Следующая дорожка");
         map.put("Next wallpaper", "Следующие обои");
         map.put("Night", "Ночь");
-        map.put("Night Scenes Custom Wallpaper", "Свои обои для ночных сцен");
     }
 
     private static void part7(Map<String, String> map) {
@@ -811,9 +788,6 @@ final class RussianTranslations {
         map.put("Power Off & Sleep Timer permission", "Разрешение на выключение и таймер сна");
         map.put("Power Off (Screen Off)", "Сон (выключение экрана)");
         map.put("Power Off / Screen Off", "Выключение экрана");
-        map.put("Prayer Calculation Method", "Метод расчёта времени намаза");
-        map.put("Prayer Times", "Время намаза");
-        map.put("Prayer calculation method", "Метод расчёта времени намаза");
         map.put("Preparing CleanYourTV…", "Подготовка CleanYourTV…");
         map.put("Preparing QR code…", "Подготовка QR-кода…");
         map.put("Presentation", "Презентация");
@@ -821,7 +795,6 @@ final class RussianTranslations {
         map.put("Presentation mode", "Режим презентации");
         map.put("Press Back again to exit", "Нажмите «Назад» ещё раз для выхода");
         map.put("Press OK on an app to show or hide it from the home screen dock.", "Нажмите OK на приложении, чтобы показать или скрыть его в доке главного экрана.");
-        map.put("Press OK to include releases from this country", "OK — добавить контент этой страны");
         map.put("Press the button on your remote that you want to remap…\n\n(D-pad navigation, OK and Back are kept for normal navigation.)", "Нажмите кнопку на пульте, которую хотите переназначить…\n\n(Стрелки, OK и Назад сохраняются для обычной навигации.)");
         map.put("Press ▲ on an app to close it", "Нажмите ▲ на приложении, чтобы закрыть его");
         map.put("Preview", "Предпросмотр");
@@ -841,8 +814,6 @@ final class RussianTranslations {
         map.put("Quick buttons", "Быстрые настройки");
         map.put("Quick settings", "Быстрые настройки");
         map.put("RAM {0} used of {1}", "ОЗУ: занято {0} из {1}");
-        map.put("REDDIT WALLPAPER OPTIONS", "ПАРАМЕТРЫ ОБОЕВ REDDIT");
-        map.put("REGION MODE", "ВЫБОР РЕГИОНА");
         map.put("REMAPPED BUTTONS", "ПЕРЕНАЗНАЧЕННЫЕ КНОПКИ");
         map.put("REMAPPED BUTTONS (1X / 2X / 3X TAP)", "НАЗНАЧЕННЫЕ КНОПКИ (1 / 2 / 3 НАЖАТИЯ)");
         map.put("REMOTE FIXES", "ИСПРАВЛЕНИЯ ПУЛЬТА");
@@ -869,19 +840,16 @@ final class RussianTranslations {
         map.put("Red Button", "Красная кнопка");
         map.put("Reddit Wallpaper", "Обои Reddit");
         map.put("Reddit Wallpapers", "Обои Reddit");
-        map.put("Reddit wallpaper updated.", "Обои Reddit обновлены.");
         map.put("Refresh", "Обновить");
         map.put("Refresh Carousel", "Обновить карусель");
         map.put("Refresh weather now", "Обновить погоду сейчас");
         map.put("Remember what you play in each app", "Запоминать просмотренное в приложениях");
         map.put("Remove / Revoke All Permissions", "Отозвать все разрешения");
         map.put("Remove / revoke all permissions", "Отозвать все разрешения");
-        map.put("Remove Wallpaper #", "Удалить обои №");
         map.put("Remove button remap", "Удалить переназначение");
         map.put("Remove from Keep Watching", "Убрать из «Продолжить просмотр»");
         map.put("Remove from dock", "Убрать из дока");
         map.put("Remove person", "Удалить профиль");
-        map.put("Remove this wallpaper", "Удалить эти обои");
         map.put("Removed remap for {0}.", "Удалено назначение для {0}.");
         map.put("Rename", "Переименовать");
         map.put("Rename App", "Переименовать приложение");
@@ -889,7 +857,6 @@ final class RussianTranslations {
         map.put("Rename person", "Переименовать профиль");
         map.put("Rename…", "Переименовать…");
         map.put("Repair", "Исправить");
-        map.put("Replace Wallpaper #", "Заменить обои №");
         map.put("Required so mapped buttons work over every app", "Нужно для работы назначенных кнопок поверх приложений");
         map.put("Reset", "Сбросить");
         map.put("Reset Control Panel actions to default", "Сбросить действия Панели управления");
@@ -935,9 +902,7 @@ final class RussianTranslations {
         map.put("Running settings put global adb_enabled 0 and verifying port 5555…", "Выключение отладки и проверка порта 5555…");
         map.put("SAVED DISABLED PACKAGES (TAP TO RE-ENABLE)", "ОТКЛЮЧЁННЫЕ ПАКЕТЫ (OK — ВОССТАНОВИТЬ)");
         map.put("SCENES", "СЦЕНЫ");
-        map.put("SHUFFLE FOLDER", "ПАПКА ДЛЯ СМЕНЫ ОБОЕВ");
         map.put("STARTUP & KEEP ALIVE", "АВТОЗАПУСК И ВОССТАНОВЛЕНИЕ");
-        map.put("SUBREDDITS (SELECT SINGLE OR MULTIPLE)", "СООБЩЕСТВА REDDIT (МОЖНО ВЫБРАТЬ НЕСКОЛЬКО)");
         map.put("Save", "Сохранить");
         map.put("Say a movie, show or app", "Назовите фильм, сериал или приложение");
         map.put("Scan Apps (ADB)", "Сканировать приложения (ADB)");
@@ -973,17 +938,11 @@ final class RussianTranslations {
         map.put("Select Apps to Disable — {0} ({1} found)", "Выберите приложения для отключения — {0} (найдено: {1})");
         map.put("Select Home App", "Выберите главный экран");
         map.put("Select TV Model First", "Сначала выберите модель ТВ");
-        map.put("Select Wallpaper Folder", "Выберите папку с обоями");
-        map.put("Select Wallpaper Image", "Выберите обои");
-        map.put("Select a folder and enable or disable individual wallpapers inside it", "Выберите папку и отметьте нужные изображения");
         map.put("Select a usage mode for permissions (Button Mapper Accessibility, Continue Watching, and Wi-Fi). Pick ONE usage mode below:", "Выберите один способ выдачи разрешений для кнопок пульта, продолжения просмотра и Wi-Fi:");
         map.put("Select at least one package first.", "Сначала выберите хотя бы один пакет.");
         map.put("Select this folder & shuffle ({0} images)", "Выбрать папку для смены обоев (изображений: {0})");
-        map.put("Select wallpaper folder…", "Выбрать папку с обоями…");
         map.put("Select your language to begin", "Выберите язык для начала работы");
-        map.put("Selected", "Выбрано");
         map.put("Selected model: {0}", "Выбрана модель: {0}");
-        map.put("Selected — press OK to toggle", "Выбрано — OK для переключения");
         map.put("Send Key Code", "Отправить код кнопки");
         map.put("Send Key Code (Remote / Media / System)…", "Отправить код кнопки (пульт / медиа / система)…");
         map.put("Send Key Code…", "Отправить код кнопки…");
@@ -1006,7 +965,6 @@ final class RussianTranslations {
         map.put("Settings were successfully restored from:\n{0}", "Настройки восстановлены из:\n{0}");
         map.put("Settings ›", "Настройки ›");
         map.put("Setup Complete", "Настройка завершена");
-        map.put("Shia Ithna-Ashari (Jafari)", "Шиитский (джафаритский)");
         map.put("Show Changelog", "Список изменений");
         map.put("Show Clock, Date & Greeting over your chosen wallpaper (press any key to return)", "Часы, дата и приветствие на выбранных обоях (любая кнопка — вернуться)");
         map.put("Show Continue Watching on Home", "Показывать «Продолжить просмотр» на главном экране");
@@ -1015,7 +973,7 @@ final class RussianTranslations {
         map.put("Show in dock · press OK to hide", "В доке · нажмите OK, чтобы скрыть");
         map.put("Show on Home Screen", "Показать на главном экране");
         map.put("Show the Wi-Fi Name", "Показывать имя сети Wi-Fi");
-        map.put("Show widgets when selected app has no Continue Watching", "Показывать виджеты, если у выбранного приложения нет истории просмотра");
+
         map.put("Showers", "Ливень");
         map.put("Shuffle Folder", "Случайные обои из папки");
         map.put("Sign in to {0}", "Войти в {0}");
@@ -1029,7 +987,6 @@ final class RussianTranslations {
         map.put("Single Tap (1x)", "Одиночное нажатие (1x)");
         map.put("Skip Setup", "Пропустить настройку");
         map.put("Skip This Step", "Пропустить этот шаг");
-        map.put("Skip now ›", "Пропустить ›");
         map.put("Skip to the next Reddit wallpaper", "Переключиться на следующие обои Reddit");
         map.put("Skipping this slide", "Слайд пропущен");
         map.put("Sky", "Небесный");
@@ -1082,9 +1039,6 @@ final class RussianTranslations {
         map.put("Tall Glass", "Высокие стеклянные");
         map.put("Tap Check for updates", "Нажмите «Проверить обновления»");
         map.put("Tap to detect / select…", "Нажмите для определения / выбора…");
-        map.put("Tap to include", "Нажмите для выбора");
-        map.put("Tap to set as active wallpaper", "Нажмите для выбора этих обоев");
-        map.put("Tap to toggle in scene rotation · Long-press or use actions below", "Нажмите для включения в смену сцен · Удерживайте для действий");
         map.put("Teal", "Бирюзовый");
         map.put("Temperature", "Температура");
         map.put("Tessellated Pavement", "Мозаичный берег");
@@ -1121,7 +1075,6 @@ final class RussianTranslations {
         map.put("Type to search your apps, settings, movies and shows", "Введите название приложения, настройки, фильма или сериала");
         map.put("UNIVERSAL SHORTCUT ACTIONS", "УНИВЕРСАЛЬНЫЕ ЯРЛЫКИ");
         map.put("UPDATES", "ОБНОВЛЕНИЯ");
-        map.put("Umm Al-Qura (Makkah)", "Умм аль-Кура (Мекка)");
         map.put("Unicorn", "Единорог");
         map.put("Uninstall", "Удалить");
         map.put("Unpin from Home", "Открепить с главного");
@@ -1165,10 +1118,9 @@ final class RussianTranslations {
         map.put("Volume Up (24)", "Громче (24)");
         map.put("Volume button fix mode", "Режим исправления кнопок громкости");
         map.put("WALLPAPER", "ОБОИ");
-        map.put("WALLPAPERS IN FOLDER (TAP TO ENABLE / DISABLE)", "ОБОИ В ПАПКЕ (OK — ВКЛ. / ВЫКЛ.)");
         map.put("WARNING: Manual Debloat lists ALL system apps installed on your TV.\n\n• Only disable packages if you know exactly what you are doing.\n• Disabling core Android system services, TV input/tuner services, or Settings packages can break HDMI inputs, Wi-Fi, remote control, or cause a bootloop.\n\nProceed at your own risk?", "Здесь показаны все системные приложения.\n\n• Отключайте только известные вам пакеты.\n• Отключение системных служб, входов ТВ или настроек может нарушить работу HDMI, Wi-Fi, пульта или загрузки устройства.\n\nПродолжить?");
         map.put("WEATHER", "ПОГОДА");
-        map.put("WIDGET SETTINGS", "НАСТРОЙКИ ВИДЖЕТОВ");
+
         map.put("WRITE_SECURE_SETTINGS and all launcher permissions are now active, and ADB (port 5555) has been closed for your security.\n\nTip: For maximum security, you can also select “Revoke USB debugging authorizations” in Developer Options.", "WRITE_SECURE_SETTINGS и разрешения лаунчера выданы. ADB (порт 5555) выключен.\n\nПри необходимости можно также отозвать разрешения отладки по USB в настройках разработчика.");
         map.put("Waiting for approval…", "Ожидание подтверждения…");
         map.put("Watching now · OK to switch or rename", "Текущий профиль · OK — сменить или переименовать");
@@ -1218,17 +1170,15 @@ final class RussianTranslations {
         map.put("cp_bg_blurry", "Размытый (размытие текущего содержимого)");
         map.put("cp_bg_mode", "Фон панели управления");
         map.put("cp_bg_transparent", "Прозрачный");
-        map.put("dash_football", "Футбольные матчи");
-        map.put("dash_latest_releases", "Самое популярное");
-        map.put("dash_prayer_times", "Время намаза");
+
+
+
         map.put("e.g. 85 (Play/Pause), 164 (Mute), 178 (TV Input)", "Например: 85 (пуск/пауза), 164 (звук), 178 (вход ТВ)");
-        map.put("e.g. Qarabağ, Galatasaray, Real Madrid", "Например: Real Madrid, ЦСКА, Зенит");
-        map.put("e.g. WallpaperDump, ImaginaryLandscapes", "Например: WallpaperDump, ImaginaryLandscapes");
         map.put("e.g. tcl, philips, sony, hisense, xiaomi…", "Например: tcl, philips, sony, hisense, xiaomi…");
         map.put("e.g. tcl, sony, hisense, xiaomi, philips, skyworth…", "Например: tcl, sony, hisense, xiaomi, philips, skyworth…");
-        map.put("football_fav_teams", "Избранные команды");
-        map.put("football_loading", "Загрузка матчей…");
-        map.put("football_no_matches", "Сейчас нет запланированных матчей");
+
+
+
         map.put("hour", "ч");
     }
 
@@ -1241,25 +1191,23 @@ final class RussianTranslations {
         map.put("min", "мин.");
         map.put("minute", "мин.");
         map.put("minutes", "мин.");
-        map.put("next_wallpaper", "Следующие обои");
         map.put("packages", "пакетов");
-        map.put("prayer_asr", "Аср");
-        map.put("prayer_dhuhr", "Зухр");
-        map.put("prayer_fajr", "Фаджр");
-        map.put("prayer_isha", "Иша");
-        map.put("prayer_maghrib", "Магриб");
-        map.put("prayer_method_label", "Метод расчёта");
-        map.put("prayer_remaining", "осталось");
-        map.put("prayer_sunrise", "Восход");
-        map.put("releases_country_auto", "Автоматически (по языку интерфейса)");
-        map.put("releases_country_setting", "Страны для популярных фильмов");
-        map.put("releases_loading", "Загрузка контента…");
+
+
+
+
+
+
+
+
+
+
+
         map.put("remaining", "осталось");
         map.put("space", "пробел");
         map.put("tomorrow_short", "Завтра");
         map.put("tvOS Launcher will launch immediately on system boot.", "Автозапуск tvOS Launcher при включении устройства включён.");
         map.put("tvOS Launcher works best as the home screen. Allow these once; anything this TV doesn't support is skipped.", "Выберите tvOS Launcher главным экраном. Разрешения выдаются один раз; неподдерживаемые функции можно пропустить.");
-        map.put("weather", "Погода");
         map.put("weather_updating", "Обновление…");
         map.put("{0} ({1}) is a core system package.\n\nDisabling it may break system settings, TV inputs, or cause instability. Disable anyway?", "{0} ({1}) — системный пакет.\n\nОтключение может нарушить настройки, входы ТВ или стабильность устройства. Всё равно отключить?");
         map.put("{0} ({1}) is a critical system service required for your TV remote and Bluetooth connectivity.\n\nIt cannot be disabled under any circumstances.", "{0} ({1}) — критическая служба для работы пульта и Bluetooth.\n\nЕё отключение запрещено.");

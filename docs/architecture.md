@@ -35,7 +35,6 @@ source (Nayuki, MIT) under `src/io/nayuki/qrcodegen`.
 | `Scenes.java`, `SceneHome.java` | Scene rendering and dock; worker preparation of current/next scene, UI draws ready layers |
 | `CustomMedia.java`, `WeightedLruCache.java` | Custom artwork and byte-budgeted LRU; evictions release references without recycling borrowed images |
 | `LatestTask.java` | One active/one pending preparation, generation checks and disposal of unpublished obsolete results |
-| `HomeDashboard.java`, `RequestGroup.java` | Dashboard data; shared requests per signature, bounded workers, failure backoff |
 | `VolumePollPolicy.java` | Event-driven idle volume handling and slower fallback polling, faster checks only during a hold |
 | `present/Presenter.java` | Presentation entry point: settings, server lifecycle, player bridge, boot start |
 | `present/AdminServer.java` | HTTP server (port 8080), API, streaming multipart uploads |
@@ -47,9 +46,33 @@ source (Nayuki, MIT) under `src/io/nayuki/qrcodegen`.
 
 ## Design decisions
 
-- **Measure Apple first.** Geometry comes from Apple's tvOS 26 press screenshot scaled to
-  1920×1080 (dock 48 px from the edges, 248×148 px cards, 51 px gaps, dock top at 73%, focus 1.2×)
-  and the HIG (60/80 pt safe area, 800×480 icons, focus/pressed states).
+- **Measure Apple first.** Home follows the user's five-column Apple TV reference: at 1920×1080,
+  resting cards are about 307×184 px, gaps 52 px, dock edges about 36 px, dock top at 69%,
+  and focus scale 1.2×. The next row peeks below the dock. HIG defines landscape 800×480
+  source icons (5:3); our rendered dimensions are reference measurements, not Apple API constants.
+  See [Apple TV Home research](apple-tv-home-research.md) for sources and version caveats.
+- **Per-app Top Shelf.** Classic queries available Continue Watching and recommendations for the
+  focused first-row app. `LatestTask` bounds pending data and artwork work and rejects obsolete
+  results on separate foreground workers, without bulk image prefetching on the general IO queue.
+  TV listings access is requested independently of Continue Watching; permission changes invalidate cached
+  provider results immediately. `HeroArtwork` groups the prepared image, blur and logo; only unpublished
+  resources are recycled. The neutral background remains until matching artwork is ready; failed artwork cannot expose
+  the previous app's preview. Continue Watching rows take precedence.
+  Scrolling into lower app rows retains the ready preview; returning to the same dock app reuses it
+  immediately. Refreshing stale data also keeps the existing artwork visible.
+  The full-screen focus target is enabled only for ready artwork owned by the selected app;
+  Presentation and other utility cards cannot enter a stale or empty preview.
+- **One app list.** Home ignores legacy Other Apps membership and displays the complete visible
+  catalog in the ordinary grid, preserving saved order and explicit hidden-app choices.
+- **Home has no wallpapers.** A fixed neutral backdrop is used when app artwork is unavailable.
+  Scene artwork, clocks and custom screen saver images belong to the screen saver only.
+- **One-screen setup.** Language selection and Get Started open Home immediately. Permission flows
+  remain with the features that need them; onboarding does not configure optional services.
+- **Settings entry.** Home and Control Center open launcher settings directly. Device settings is
+  an action inside the launcher page; About identifies the fork maintainer and original project.
+- **Presentation images.** A bounded latest-task decoder prepares images on a worker, samples both
+  dimensions and caps the result to the display. The old frame stays until the next image is ready;
+  failed decoding shows an error and advances, without retrying the original unbounded image.
 - **Liquid Glass without a backdrop-blur API.** The launcher knows what is behind its glass (its
   wallpaper or the carousel artwork), so it bakes a small blurred, saturation-boosted copy once per
   background and the GPU draws glass as shader-filled rounded rectangles aligned to the surface's
@@ -76,15 +99,13 @@ source (Nayuki, MIT) under `src/io/nayuki/qrcodegen`.
 
 ## Performance (Mi Box, Mali-450 MP, GLES 2.0)
 
-- Startup: the app list and wallpaper are prepared on background threads. The shell appears without
+- Startup: the app list is prepared on a background thread. The shell appears without
   waiting for package-manager queries; only the current catalog generation is applied on the UI thread.
 - Scenes prepare images, clock fonts and glass on a worker, retaining the displayed/transition or next
   scene. `onDraw` reads ready layers. Published bitmaps are released by reference; only unpublished
-  obsolete results may be recycled. Device frame times for this change are pending (X4Q Pro deferred).
+  obsolete results may be recycled.
 - Custom wallpaper cache: 8–24 MiB depending on heap; custom icons: 2–8 MiB; settings thumbnails: 4 MiB.
   Android memory-pressure callbacks trim these caches. These limits do not include active Views or GPU memory.
-- Dashboard fetches share one in-flight task per signature, with three worker threads, a 24-task queue
-  and 30-second failure backoff. Explicit refresh bypasses backoff while still sharing running work.
 - Volume handling waits for native callbacks while idle; without a native listener (or in projector mode),
   idle fallback polls every 400 ms plus dump time. The same single writer thread handles Binder dumps.
 

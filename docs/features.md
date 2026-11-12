@@ -12,46 +12,37 @@ Everything tvOS Launcher does, by area. For how the code is organised see
 
 ## First-time setup
 
-The first time tvOS Launcher opens it walks through Apple-style pages, one question each (OK moves on, Back
-goes back):
+Choose Russian or English and select **Get Started**. Home opens immediately; profiles, weather,
+recommendations and Presentation are optional settings. Permissions are requested when needed by a feature.
 
-1. **Welcome**, in Russian or English, then *Get Started*.
-2. **Create Your Profile**: a name and an emoji avatar.
-3. **Choose a look**: the background, previewed live behind the page.
-4. **Your Home Screen** (this profile): Recommendations, News and Continue Watching on/off.
-5. **Weather**: use my location (shows the detected city), choose a city, or don't show weather.
-6. **Presentation** (whole TV): use Presentation; if on, *Start with the TV* and *Keep Screen Awake*.
-7. **Finish Setting Up**: Android's location prompt appears at once; make tvOS Launcher the home screen and
-   allow whatever else the TV supports (each ticks when done; unsupported ones are left out).
-8. **You're All Set** → Home.
-
-Settings → Home → **Run setup again** repeats it. If Home is pressed mid-way, setup resumes.
-
-| | | |
-|---|---|---|
-| ![Welcome](images/setup-0.jpg) | ![Profile](images/setup-1.jpg) | ![Look](images/setup-2.jpg) |
-| ![Home Screen](images/setup-3.jpg) | ![Weather](images/setup-4.jpg) | ![Presentation](images/setup-5.jpg) |
-| ![Finish](images/setup-6.jpg) | ![Done](images/setup-7.jpg) | |
+![First-time setup](screenshots/setup.png)
 
 ## Home screen
 
+- **Default look**: Classic, with a small status clock and five landscape app cards per row,
+  matching the Large layout in the Apple TV reference. Down reveals the remaining app rows.
 - **Dock**: the first row of apps sits on a frosted Liquid Glass panel (a blurred, colour-boosted
   copy of what is behind it, with lensed edges and a faint rim).
-- **Grid**: 6 cards per row in Apple's 5:3 shape; spacing, margins, corner radii and the dock
-  position were measured from Apple's tvOS 26 screenshots and the HIG (60 pt / 80 pt safe area).
+- **Grid**: 5 cards per row in Apple's 5:3 shape; the dock begins at about 69% of the screen
+  height, with a glimpse of the next row below. Arrows scroll the grid while preserving the column.
+- **Top Shelf**: the focused dock app can show its published Android TV preview programs,
+  Continue Watching or recommendations
+  as full-screen artwork. Up opens the preview; Back returns to the dock. Apps without available
+  content use a neutral background. Continue Watching rows take precedence.
+  Presentation and other utility cards keep the app grid visible when Up is pressed; only a ready,
+  matching app preview can open full screen.
 - **Focus**: the card lifts to 1.2× with a soft shadow and a glare sweep; OK dips the card (the
   HIG's pressed state) and zooms it to full screen while the app opens.
-- **Names** appear under focused cards below the dock (none inside the dock, as on tvOS).
-- **More Apps**: hidden apps live in a folder card at the end of the grid.
+- **Names** appear below the selected card, including a caption outside the dock's glass panel.
+- **All apps**: every visible app appears directly in the scrollable grid. Apps previously placed
+  in Other Apps are included automatically. Manually hidden apps remain available in Settings.
 - **System apps** (Settings, Play Store…) get tvOS-style cards: a gradient with a white glyph.
-- **Background**: Aurora, Midnight, Sunset, Ocean or Graphite (per profile).
+- **Background**: the selected app's artwork, or a neutral fallback. Home has no wallpapers or wallpaper settings; scenes are used only by screen savers.
 
 ### Remote controls
 
 Home shows its shell while the app catalog loads in the background. Scene images and glass
 textures are prepared on workers; rapid background changes apply only the latest selection.
-Dashboard widgets share requests with the same settings and delay automatic retries for 30 seconds
-after a failure. Manual refresh can retry immediately.
 
 
 | Where | Key | Action |
@@ -74,7 +65,7 @@ after a failure. Manual refresh can retry immediately.
 
 Top right, as on tvOS:
 
-- **Internet indicator and time** on a faint dark chip for contrast over bright artwork. The
+- **Internet indicator and time** use white text and a soft shadow over the artwork. The
   indicator is drawn like Apple's symbols: Wi-Fi bars lit by signal strength (or an Ethernet
   symbol) when the internet works; dimmed bars with **!** on a network that can't reach the
   internet; dimmed bars with a slash when there is no network.
@@ -86,6 +77,8 @@ Glass controls adapt to what is behind them: the backdrop is desaturated and the
 bright artwork and lightens over dark artwork, so white text stays legible.
 
 ## Search
+
+![Search](screenshots/search.png)
 
 The magnifier next to Control Center opens Search over the blurred Home Screen, as on tvOS: what
 you typed at the top, a one-row keyboard under it, results below. Shortcuts: **hold Back** on any
@@ -119,20 +112,18 @@ it, so it can't open tvOS Launcher's Search.)
 - Settings → Home → Search: turn Movies & TV results off, or clear recent searches. Searches go
   only to JustWatch (and Stremio's catalogue when Stremio/Nuvio is installed); nothing is logged.
 
-| | |
-|---|---|
-| ![Search before typing](images/search-empty.jpg) | ![Movies & TV results](images/search-results.jpg) |
-| ![Apps & Settings and titles](images/search-apps-settings.jpg) | ![How to Watch: Open](images/search-how-to-watch.jpg) |
-| ![How to Watch: Get](images/search-get.jpg) | ![Search button in the status row](images/status-row-search.jpg) |
 
 ## Carousel (top shelf)
 
-Full-screen artwork behind the dock while a dock app is focused. One carousel holds, in order:
+Full-screen artwork behind the dock belongs to the focused first-row app. Its carousel can include:
 
-1. **Continue Watching** (up to six): what you played recently in each app, from the "now playing"
+1. **App previews**: artwork and title links the app publishes through Android TV preview channels.
+   These work independently of Continue Watching. Availability depends on what the app publishes
+   and what the device's TV provider permits the launcher to read. **Open** uses the app's content link.
+2. **Continue Watching** (up to six): what you played recently in that app, from the "now playing"
    information apps publish (title, artwork, position, time left). **▶ Resume** opens the app;
    **✕ Remove** drops it. Titles not played again for **7 days** expire.
-2. **News** and **recommendations**, alternating.
+3. **Recommendations** from the enabled source, filtered to this app's service.
 
 - **Recommendations**: popular titles in India on your services. Source **JustWatch** (no key,
   unofficial API) or **TMDB** (free key). Each refresh picks at random from each service's top 20,
@@ -142,26 +133,21 @@ Full-screen artwork behind the dock while a dock app is focused. One carousel ho
   goes to the title's page in **Stremio**, or in **[Nuvio](https://github.com/NuvioMedia/NuvioTV)**
   when only Nuvio is installed; **Get** opens Stremio on the Play Store. Settings → Top Shelf →
   Source; with Stremio chosen, *Opens in* shows which app will be used.
-
-  ![Stremio as the source](images/settings-stremio.jpg)
-- **News**: India, local (your city, from the weather location) and world, from Indian newsrooms'
-  RSS feeds with large images: Times of India, Hindustan Times, The Indian Express, India Today and
-  News18 by default (NDTV and The Hindu optional). An editorial layout made for reading: headline,
-  summary, section, newsroom and age; no button. Updates every 30 minutes (15/30/60).
-- Each profile chooses what it shows (Settings → Top Shelf / Continue Watching, or setup).
+- Unavailable or failed artwork leaves the neutral background visible. Rapid focus moves cannot apply
+  an older app's result to the selected app.
+- Each profile chooses what it shows in Settings → Top Shelf / Continue Watching.
 
 ## Idle full-screen carousel
 
 After 20 seconds without input on Home (Settings → Home: Off, 10, 20, 30 or 60 s) the dock and grid
 slide down, the weather pill fades, and the carousel keeps playing full screen with its title and
 summary at the bottom. The first key press only brings the Home Screen back.
-
-![Idle carousel](images/idle-carousel.jpg)
-
 ## Weather
 
-- A small glass **weather pill** in the top-left corner: icon, temperature, condition, city and
-  today's high/low. OK opens the forecast: current conditions, humidity and wind, the next six
+![Weather](screenshots/weather.png)
+
+- A small glass **weather pill** in the top-left corner: icon, current temperature, condition and
+  city, with long text shortened to fit. OK opens the forecast: current conditions, humidity and wind, the next six
   hours, and a 5-day list with temperature range bars (blue → red, a dot for now), as in Apple
   Weather.
 - Free sources with no key: [Open-Meteo](https://open-meteo.com) (default),
@@ -172,6 +158,8 @@ summary at the bottom. The first key press only brings the Home Screen back.
 - Location from the internet address (ipapi.co → ipwho.is → geojs.io) unless you choose a city.
 
 ## Control Center
+
+![Control Center](screenshots/control-center.png)
 
 Opened from the button next to the time; the whole Home Screen is blurred behind it. The focused
 tile turns solid white.
@@ -185,13 +173,10 @@ tile turns solid white.
 | Audio | Current output; opens sound settings |
 | Sleep Timer | Off → 15 → 30 → 60 → 90 min |
 | Round shortcuts | Inputs (TVs with inputs; Accessibility otherwise), Bluetooth/controllers, Settings, Search |
-
-![Control Center](images/control-center.jpg)
-
 ## Profiles
 
 - Up to **3 profiles**, each with a **unique emoji** on a pastel circle.
-- Each keeps its own app layout and hidden apps, background, carousel choices and Continue Watching.
+- Each keeps its own app layout and hidden apps, carousel choices and Continue Watching.
 - The avatar opens a full-screen **Who's Watching?** switcher with large centred avatars over a
   blurred Home Screen and **+ Add User**. Long-press OK (or Menu) on a profile: Rename, Change
   Emoji, Change Colour, Delete.
@@ -199,14 +184,13 @@ tile turns solid white.
 
 ## Inputs
 
+![Input picker](screenshots/inputs.png)
+
 Only on TVs with hardware inputs (HDMI, AV, component, tuner): an **Inputs** card starts first in the
 dock and an Inputs shortcut sits in Control Center. The picker shows each input with its connector
 icon (HDMI, AV, component, S-Video, VGA/DVI, DisplayPort, SCART, USB, antenna); a plugged-in USB
 drive appears too. App channel sources (e.g. Mi TV+) are not inputs. The card can be moved, hidden
 or switched off (Settings → Inputs).
-
-![Input picker](images/inputs-picker.jpg)
-
 ## Presentation mode
 
 Send images, videos and webpages from any browser on the same Wi-Fi and play them full screen in a
@@ -245,9 +229,6 @@ Opened from the gear in Control Center. A main list opens a page per section (Ba
 Profiles, Top Shelf, Presentation, Inputs, Weather, Continue Watching, Home, Permissions, About, and
 the TV's own settings.
 
-| | |
-|---|---|
-| ![Settings](images/settings-root.jpg) | ![Top Shelf](images/settings-top-shelf.jpg) |
 
 ## Permissions
 
@@ -256,6 +237,7 @@ tvOS Launcher asks on screen wherever the TV allows it; adb is only a last resor
 | Feature | How it is granted |
 |---|---|
 | Wi-Fi name (location) | Android's permission prompt |
+| Published app previews | Android's TV listings permission prompt after initial setup; independent of Continue Watching |
 | Continue Watching & Do Not Disturb | The system notification-access screen. Not possible on low-RAM (1 GB) TVs, where Android disables it — tvOS Launcher says so |
 | Power Off & Sleep Timer | Android's "Activate device admin app?" screen; where device admin is switched off (e.g. Mi Box), tvOS Launcher's accessibility switch **tvOS Launcher – Power Off** in the TV's Accessibility settings (opened for you). The same switch lets Clean close apps |
 | Search dictation (microphone) | Android's permission prompt the first time the mic is used; without it, the TV's voice prompt is used |

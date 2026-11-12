@@ -18,6 +18,7 @@ import android.graphics.Shader;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.net.Uri;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -241,9 +242,9 @@ public class SettingsActivity extends Activity {
 
     private String sectionTitle(String sec) {
         switch (sec) {
-            case LOOK_SCENES: return tr("Appearance and scenes");
+            case LOOK_SCENES: return tr("Home screen");
             case LOCATION:
-            case WEATHER: return tr("Weather and location");
+            case WEATHER: return tr("Weather");
             case APPS: return tr("Apps");
             case PROFILES: return tr("People");
             case CONTROL_PANEL: return tr("Control Panel");
@@ -288,12 +289,13 @@ public class SettingsActivity extends Activity {
         columns.addView(sideCol, sideLp);
 
         sideTitleView = new TextView(this);
-        sideTitleView.setText(tr("Home settings"));
+        sideTitleView.setText(tr("Settings"));
         sideTitleView.setTextColor(Color.WHITE);
         sideTitleView.setTypeface(Ui.font(this, "display"));
         sideTitleView.setLetterSpacing(-0.022f);
         Ui.textSize(sideTitleView, 24f);
         sideTitleView.setSingleLine(true);
+        sideTitleView.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams stLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         stLp.leftMargin = u(16);
@@ -323,10 +325,11 @@ public class SettingsActivity extends Activity {
         mainHeadView.setTypeface(Ui.font(this, "display"));
         mainHeadView.setLetterSpacing(-0.015f);
         Ui.textSize(mainHeadView, 20f);
-        mainHeadView.setSingleLine(true);
+        mainHeadView.setMaxLines(3);
         LinearLayout.LayoutParams mhLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         mhLp.leftMargin = u(16);
+        mhLp.rightMargin = u(16);
         mhLp.topMargin = u(14);
         mhLp.bottomMargin = u(12);
         mainCol.addView(mainHeadView, mhLp);
@@ -495,18 +498,6 @@ public class SettingsActivity extends Activity {
                         }
                     }
                 }
-                for (int i = 0; i < Scenes.CLASSIC_PHOTOS.length; i++) {
-                    String assetPath = "backgrounds/" + Scenes.CLASSIC_PHOTOS[i][0];
-                    String tk = assetPath + ":" + reqW + "x" + reqH;
-                    if (SCENE_THUMB_CACHE.get(tk) == null) {
-                        Bitmap raw = Scenes.loadAssetBitmap(ctx, assetPath, reqW, reqH);
-                        if (raw != null) {
-                            Bitmap scaled = Bitmap.createScaledBitmap(raw, reqW, reqH, true);
-                            if (scaled != raw) raw.recycle();
-                            SCENE_THUMB_CACHE.put(tk, scaled);
-                        }
-                    }
-                }
             } catch (Throwable ignored) {
             }
         });
@@ -565,9 +556,10 @@ public class SettingsActivity extends Activity {
             label.setTypeface(Ui.font(this, "semibold"));
             Ui.textSize(label, 14.5f);
             label.setTextColor(0xC2FFFFFF);
-            label.setSingleLine(true);
+            label.setMaxLines(2);
+            label.setEllipsize(TextUtils.TruncateAt.END);
             row.addView(label, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
             row.setOnFocusChangeListener((v, has) -> {
                 if (rebuilding) return;
@@ -665,7 +657,7 @@ public class SettingsActivity extends Activity {
     }
 
     private void updateSidebarTranslations() {
-        sideTitleView.setText(tr("Home settings"));
+        sideTitleView.setText(tr("Settings"));
         for (String[] pair : SIDEBAR_SECTIONS) {
             String key = pair[0];
             TextView label = sideLabels.get(key);
@@ -943,188 +935,16 @@ public class SettingsActivity extends Activity {
         infoNote(tr("Used for the weather on the home screen and local headlines."));
     }
 
-    /**
-     * Exact Couch-TV "Look and scenes" layout (matching docs/screens/home-settings.jpg):
-     * - DOCK: Dock resize option (-50% to +50%, default 100%)
-     * - LOOK: Night scenes vs Classic
-     * - SCENES: Night, Golden hour, Waterline, Fog, Rainforest dawn (with 16:9 thumbnails & green circular checkmarks)
-     * - Each scene stays: 20 seconds
-     * - Clock: 12 hour / 24 hour
-     * - CLASSIC BACKGROUND: Couch-TV photos & ambient themes
-     */
+    /** Home has app previews; scenes are reserved for screen savers. */
     void pageLookAndScenes() {
-        boolean scenesLook = Scenes.isScenesLook(this);
-
-        section(tr("LOOK"));
-        choiceRow(
-                tr("Night scenes"),
-                tr("A big glass clock, scenes taking turns"),
-                scenesLook,
-                () -> {
-                    Scenes.setLook(this, Scenes.LOOK_SCENES);
-                    selectSection(LOOK_SCENES, true, 0);
-                });
-        choiceRow(
-                tr("Classic"),
-                tr("One photo and a grid of app banners"),
-                !scenesLook,
-                () -> {
-                    Scenes.setLook(this, Scenes.LOOK_CLASSIC);
-                    selectSection(LOOK_SCENES, true, 1);
-                });
-
-        section(tr("HOME SCREEN WIDGETS"));
-        row(tr("Home screen widget settings"),
-                () -> (HomeDashboard.isEnabled(this) ? tr("On") : tr("Off")) + "  ›",
-                () -> openSubMenu("home_dashboard"));
-
-        if (scenesLook) {
-            section(tr("DOCK"));
-            row(tr("Dock size"),
-                    () -> Scenes.dockScaleLabel(this),
-                    () -> openSubMenu("dock_size"));
-            row(tr("Show app names"),
-                    () -> Scenes.isDockNamesShown(this) ? tr("On") : tr("Off"),
-                    () -> {
-                        Scenes.setDockNamesShown(this, !Scenes.isDockNamesShown(this));
-                        refreshAll();
-                    });
-
-            section(tr("NIGHT SCENES CLOCK"));
-            row(tr("Clock"),
-                    () -> Scenes.isClock24h(this) ? tr("24 hour") : tr("12 hour"),
-                    () -> {
-                        Scenes.setClock24h(this, !Scenes.isClock24h(this));
-                        refreshAll();
-                    });
-            row(tr("Clock font"),
-                    () -> Scenes.clockStyleLabel(this),
-                    () -> {
-                        Scenes.cycleClockStyle(this);
-                        refreshAll();
-                    });
-            row(tr("Default wallpaper clock alignment"),
-                    () -> Scenes.defaultClockPosLabel(this),
-                    () -> {
-                        Scenes.cycleDefaultClockPos(this);
-                        refreshAll();
-                    });
-            boolean customSceneOn = CustomMedia.isCustomWallpaperEnabled(this, CustomMedia.SCOPE_SCENE);
-            if (customSceneOn || Scenes.isAnyCustomSceneEnabled(this)) {
-                row(tr("Custom wallpaper clock alignment"),
-                        () -> Scenes.customClockPosLabel(this),
-                        () -> {
-                            Scenes.cycleCustomClockPos(this);
-                            refreshAll();
-                        });
-            }
-            row(tr("Each scene stays"),
-                    () -> Scenes.getStaySeconds(this) + tr(" seconds"),
-                    () -> {
-                        Scenes.cycleStaySeconds(this);
-                        refreshAll();
-                    });
-
-            section(tr("CUSTOM WALLPAPER"));
-            row(tr("Custom wallpaper mode"),
-                    () -> CustomMedia.isCustomWallpaperEnabled(this, CustomMedia.SCOPE_SCENE)
-                            ? tr("On") : tr("Off"),
-                    () -> {
-                        boolean next = !CustomMedia.isCustomWallpaperEnabled(this, CustomMedia.SCOPE_SCENE);
-                        CustomMedia.setCustomWallpaperEnabled(this, CustomMedia.SCOPE_SCENE, next);
-                        rebuildMainRows();
-                    });
-            if (customSceneOn) {
-                row(tr("Custom wallpaper settings…"),
-                        () -> CustomMedia.getCustomWallpaperModeLabel(this, CustomMedia.SCOPE_SCENE),
-                        () -> openSubMenu("custom_wall:" + CustomMedia.SCOPE_SCENE));
-            } else {
-                section(tr("SCENES"));
-                List<String> order = Scenes.getSceneOrder(this);
-                for (int i = 0; i < order.size(); i++) {
-                    String id = order.get(i);
-                    if (Scenes.isCustomId(id)) continue;
-                    final int sceneIdx = i;
-                    Scenes.Spec spec = Scenes.byId(id);
-                    sceneCheckRow(spec, sceneIdx, order);
-                }
-            }
-        } else {
-            section(tr("CLASSIC CLOCK & WEATHER"));
-            boolean bigClock = Scenes.isClassicBigClockEnabled(this);
-            row(tr("Big Clock (Night Scene style)"),
-                    () -> bigClock ? tr("On") : tr("Off"),
-                    () -> {
-                        Scenes.setClassicBigClockEnabled(this, !Scenes.isClassicBigClockEnabled(this));
-                        rebuildMainRows();
-                    });
-            if (bigClock) {
-                row(tr("Clock alignment"),
-                        () -> Scenes.classicClockPosLabel(this),
-                        () -> {
-                            Scenes.cycleClassicClockPos(this);
-                            refreshAll();
-                        });
-                row(tr("Clock"),
-                        () -> Scenes.isClock24h(this) ? tr("24 hour") : tr("12 hour"),
-                        () -> {
-                            Scenes.setClock24h(this, !Scenes.isClock24h(this));
-                            refreshAll();
-                        });
-                row(tr("Clock font"),
-                        () -> Scenes.clockStyleLabel(this),
-                        () -> {
-                            Scenes.cycleClockStyle(this);
-                            refreshAll();
-                        });
-                row(tr("Top-right weather shortcut"),
-                        () -> SceneHome.isWeatherShortcutEnabled(this) ? tr("On") : tr("Off"),
-                        () -> {
-                            SceneHome.setWeatherShortcutEnabled(this, !SceneHome.isWeatherShortcutEnabled(this));
-                            refreshAll();
-                        });
-            } else {
-                row(tr("Clock"),
-                        () -> Scenes.isClock24h(this) ? tr("24 hour") : tr("12 hour"),
-                        () -> {
-                            Scenes.setClock24h(this, !Scenes.isClock24h(this));
-                            refreshAll();
-                        });
-            }
-
-            section(tr("CUSTOM WALLPAPER"));
-            boolean customClassicOn = CustomMedia.isCustomWallpaperEnabled(this, CustomMedia.SCOPE_CLASSIC);
-            row(tr("Custom wallpaper mode"),
-                    () -> CustomMedia.isCustomWallpaperEnabled(this, CustomMedia.SCOPE_CLASSIC)
-                            ? tr("On") : tr("Off"),
-                    () -> {
-                        boolean next = !CustomMedia.isCustomWallpaperEnabled(this, CustomMedia.SCOPE_CLASSIC);
-                        CustomMedia.setCustomWallpaperEnabled(this, CustomMedia.SCOPE_CLASSIC, next);
-                        rebuildMainRows();
-                    });
-            if (customClassicOn) {
-                row(tr("Custom wallpaper settings…"),
-                        () -> CustomMedia.getCustomWallpaperModeLabel(this, CustomMedia.SCOPE_CLASSIC),
-                        () -> openSubMenu("custom_wall:" + CustomMedia.SCOPE_CLASSIC));
-            } else {
-                section(tr("CLASSIC BACKGROUND"));
-                String curWall = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
-                for (int i = 0; i < Scenes.CLASSIC_PHOTOS.length; i++) {
-                    final String photoFile = Scenes.CLASSIC_PHOTOS[i][0];
-                    final String wallKey = "photo:" + photoFile;
-                    final String label = I18n.t(this, Scenes.CLASSIC_PHOTOS[i][1]);
-                    classicPhotoRow(label, "backgrounds/" + photoFile, wallKey.equals(curWall), () -> {
-                        Profiles.homePrefs(this).edit().putString("wallpaper", wallKey).apply();
-                        rebuildMainRows();
-                    });
-                }
-                row(tr("Ambient colour themes…"), () -> {
-                    String k = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
-                    int idx = Arrays.asList(MainActivity.WALL_KEYS).indexOf(k);
-                    return MainActivity.wallName(this, Math.max(0, idx));
-                }, () -> openSubMenu("ambient_themes"));
-            }
-        }
+        row(tr("Device settings"), () -> "\u203a",
+                () -> Suggestions.start(this, new Intent(Settings.ACTION_SETTINGS)));
+        row(tr("Clock"),
+                () -> Scenes.isClock24h(this) ? tr("24 hour") : tr("12 hour"),
+                () -> { Scenes.setClock24h(this, !Scenes.isClock24h(this)); refreshAll(); });
+        section(tr("Ambient Mode"));
+        row(tr("Lock screen settings\u2026"), () -> "\u203a",
+                () -> openSubMenu("lock_screen_settings"));
     }
 
     void pageApps() {
@@ -1860,9 +1680,13 @@ public class SettingsActivity extends Activity {
     void pageAbout() {
         section(tr("APPLICATION"));
         infoRow(tr("Home screen"), "tvOS Launcher", null);
-        infoRow(tr("Developer"), "techgenius", null);
+        infoRow(tr("Developer"), "Greeg0ry", null);
         infoRow(tr("Version"), version(), null);
         infoRow(tr("Settings kept"), tr("On this TV"), null);
+        row(tr("Source code"), () -> "GitHub \u203a", () -> Suggestions.start(this,
+                new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Greeg0ry/tvOS-Launcher"))));
+        row(tr("Original project"), () -> "techgenius1 \u203a", () -> Suggestions.start(this,
+                new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/techgenius1/tvOS-Launcher"))));
 
         section(tr("BACKUP & RESTORE"));
         row(tr("Backup settings to Download"),
@@ -2226,14 +2050,10 @@ public class SettingsActivity extends Activity {
         if (subId == null) return;
         if ("dock_size".equals(subId)) {
             subMenuDockSize();
-        } else if ("home_dashboard".equals(subId)) {
-            subMenuHomeDashboard();
-        } else if ("releases_countries".equals(subId)) {
-            subMenuReleasesCountries();
         } else if (subId.startsWith("custom_wall:")) {
-            subMenuCustomWallpaper(subId.substring("custom_wall:".length()));
+            closeSubMenu();
         } else if ("ambient_themes".equals(subId)) {
-            subMenuAmbientThemes();
+            closeSubMenu();
         } else if ("lock_screen_settings".equals(subId)) {
             subMenuLockScreenSettings();
         } else if ("weather_source".equals(subId)) {
@@ -2317,350 +2137,6 @@ public class SettingsActivity extends Activity {
                 Scenes.setDockScalePercent(this, pct);
                 rebuildMainRows();
                 showStatusMsg(I18n.format(this, "Dock size set to {0}%.", pct));
-            });
-        }
-    }
-
-    private void subMenuHomeDashboard() {
-        mainHeadView.setText(tr("Home screen widget settings"));
-        backSubMenuRow();
-        section(tr("HOME SCREEN WIDGETS"));
-        row(tr("Enable Home Dashboard"),
-                () -> HomeDashboard.isEnabled(this) ? tr("On") : tr("Off"),
-                () -> {
-                    HomeDashboard.setEnabled(this, !HomeDashboard.isEnabled(this));
-                    rebuildMainRows();
-                });
-        row(tr("Show widgets when selected app has no Continue Watching"),
-                () -> HomeDashboard.isShowWhenNoCw(this) ? tr("On") : tr("Off"),
-                () -> {
-                    HomeDashboard.setShowWhenNoCw(this, !HomeDashboard.isShowWhenNoCw(this));
-                    refreshAll();
-                });
-
-        section(tr("DASHBOARD WIDGETS (4 HORIZONTAL TILES)"));
-        row("🕌  " + I18n.t(this, "dash_prayer_times"),
-                () -> HomeDashboard.isWidgetPrayerEnabled(this) ? tr("On") : tr("Off"),
-                () -> {
-                    HomeDashboard.setWidgetPrayerEnabled(this, !HomeDashboard.isWidgetPrayerEnabled(this));
-                    refreshAll();
-                });
-        row("⚽  " + I18n.t(this, "dash_football"),
-                () -> HomeDashboard.isWidgetFootballEnabled(this) ? tr("On") : tr("Off"),
-                () -> {
-                    HomeDashboard.setWidgetFootballEnabled(this, !HomeDashboard.isWidgetFootballEnabled(this));
-                    refreshAll();
-                });
-        row("🎬  " + I18n.t(this, "dash_latest_releases"),
-                () -> HomeDashboard.isWidgetReleasesEnabled(this) ? tr("On") : tr("Off"),
-                () -> {
-                    HomeDashboard.setWidgetReleasesEnabled(this, !HomeDashboard.isWidgetReleasesEnabled(this));
-                    refreshAll();
-                });
-        row("⛅  " + I18n.t(this, "weather"),
-                () -> HomeDashboard.isWidgetWeatherEnabled(this) ? tr("On") : tr("Off"),
-                () -> {
-                    HomeDashboard.setWidgetWeatherEnabled(this, !HomeDashboard.isWidgetWeatherEnabled(this));
-                    refreshAll();
-                });
-
-        section(tr("WIDGET SETTINGS"));
-        row("🌍  " + I18n.t(this, "releases_country_setting") + "…",
-                () -> HomeDashboard.getReleasesCountriesSummary(this),
-                () -> openSubMenu("releases_countries"));
-        row(tr("Prayer calculation method"),
-                () -> HomeDashboard.getPrayerMethodName(this),
-                this::promptPrayerMethodDialog);
-        row(tr("Add favorite football team…"),
-                () -> "＋",
-                this::promptAddFavoriteTeamDialog);
-        infoNote(tr("Displayed when no app is focused, when focus is on Settings / non-app elements, or when the focused app has no Continue Watching items."));
-    }
-
-    private void subMenuReleasesCountries() {
-        mainHeadView.setText(I18n.t(this, "releases_country_setting"));
-        backSubMenuRow();
-
-        boolean autoMode = HomeDashboard.isReleasesCountryAuto(this);
-        String autoCode = HomeDashboard.defaultCountryForUiLang(this);
-        String autoCountryLabel = HomeDashboard.getCountryDisplayName(this, autoCode);
-
-        section(tr("REGION MODE"));
-        choiceRow(I18n.t(this, "releases_country_auto"),
-                tr("Currently synced to: ") + autoCountryLabel,
-                autoMode,
-                () -> {
-                    HomeDashboard.setReleasesCountryAuto(this, !HomeDashboard.isReleasesCountryAuto(this));
-                    HomeDashboard.fetchLatestReleases(this, true, null);
-                    rebuildMainRows();
-                });
-
-        section(tr("COUNTRIES (SELECT ONE OR MULTIPLE)"));
-        for (int i = 0; i < HomeDashboard.RELEASES_COUNTRIES.length; i++) {
-            final String code = HomeDashboard.RELEASES_COUNTRIES[i][0];
-            final String name = HomeDashboard.getCountryDisplayName(this, code);
-            boolean selected = HomeDashboard.isReleasesCountrySelected(this, code);
-            choiceRow(name + " (" + code + ")",
-                    selected ? tr("Selected — press OK to toggle")
-                             : tr("Press OK to include releases from this country"),
-                    selected,
-                    () -> {
-                        HomeDashboard.toggleReleasesCountry(this, code);
-                        HomeDashboard.fetchLatestReleases(this, true, null);
-                        rebuildMainRows();
-                    });
-        }
-        infoNote(tr("By default, Most Watched automatically syncs with your selected UI language. Selecting any country above switches to custom multi-country mode."));
-    }
-
-    private void promptPrayerMethodDialog() {
-        int cur = HomeDashboard.getPrayerMethod(this);
-        String[] opts = new String[HomeDashboard.PRAYER_METHOD_IDS.length];
-        for (int i = 0; i < opts.length; i++) {
-            opts[i] = (HomeDashboard.PRAYER_METHOD_IDS[i] == cur ? "✓ " : "   ")
-                    + I18n.t(this, HomeDashboard.PRAYER_METHOD_NAMES[i]);
-        }
-        dialog(tr("Prayer Calculation Method"))
-                .setItems(opts, (d, which) -> {
-                    if (which >= 0 && which < HomeDashboard.PRAYER_METHOD_IDS.length) {
-                        HomeDashboard.setPrayerMethod(this, HomeDashboard.PRAYER_METHOD_IDS[which]);
-                        refreshAll();
-                    }
-                })
-                .setNegativeButton(tr("Cancel"), null)
-                .show();
-    }
-
-    private void promptAddFavoriteTeamDialog() {
-        android.widget.EditText in = new android.widget.EditText(this);
-        in.setSingleLine(true);
-        in.setHint(tr("e.g. Qarabağ, Galatasaray, Real Madrid"));
-        AlertDialog dlg = dialog(tr("Add Favorite Football Team"))
-                .setView(in)
-                .setPositiveButton(tr("Add"), (d, w) -> {
-                    String name = in.getText().toString().trim();
-                    if (!name.isEmpty()) {
-                        HomeDashboard.addCustomFavoriteTeam(this, name);
-                        showStatusMsg(I18n.format(this, "Added favorite team: {0}", name));
-                    }
-                })
-                .setNegativeButton(tr("Cancel"), null)
-                .show();
-        Ui.setupDialogEditText(in, dlg);
-        in.requestFocus();
-    }
-
-    private void subMenuCustomWallpaper(final String scope) {
-        boolean isScene = CustomMedia.SCOPE_SCENE.equals(scope);
-        mainHeadView.setText(isScene
-                ? tr("Night Scenes Custom Wallpaper")
-                : tr("Classic Custom Wallpaper"));
-        backSubMenuRow();
-
-        int subMode = CustomMedia.getCustomWallpaperSubMode(this, scope);
-        section(tr("CUSTOM WALLPAPER MODE"));
-        choiceRow(tr("Single / Multi Wallpapers"),
-                tr("Add as many custom wallpapers as you want without any limit"),
-                subMode == CustomMedia.CUSTOM_MODE_SINGLE_MULTI,
-                () -> {
-                    CustomMedia.setCustomWallpaperSubMode(this, scope, CustomMedia.CUSTOM_MODE_SINGLE_MULTI);
-                    rebuildMainRows();
-                });
-        choiceRow(tr("Shuffle Folder"),
-                tr("Select a folder and enable or disable individual wallpapers inside it"),
-                subMode == CustomMedia.CUSTOM_MODE_FOLDER_SHUFFLE,
-                () -> {
-                    CustomMedia.setCustomWallpaperSubMode(this, scope, CustomMedia.CUSTOM_MODE_FOLDER_SHUFFLE);
-                    rebuildMainRows();
-                });
-        choiceRow(tr("Reddit Wallpapers"),
-                tr("Auto-changing 1080p/4K wallpapers from your selected subreddits"),
-                subMode == CustomMedia.CUSTOM_MODE_REDDIT,
-                () -> {
-                    CustomMedia.setCustomWallpaperSubMode(this, scope, CustomMedia.CUSTOM_MODE_REDDIT);
-                    CustomMedia.fetchNextRedditWallpaperAsync(this, scope, null);
-                    rebuildMainRows();
-                });
-
-        if (subMode == CustomMedia.CUSTOM_MODE_SINGLE_MULTI) {
-            section(tr("CUSTOM WALLPAPERS (UNLIMITED)"));
-            row("＋  " + tr("Add new wallpaper…"),
-                    () -> tr("Choose image ›"),
-                    () -> CustomMedia.showImageFilePicker(
-                            this,
-                            tr("Select Wallpaper Image"),
-                            false,
-                            1920,
-                            1080,
-                            null,
-                            null,
-                            bmp -> {
-                                int slot = CustomMedia.addCustomWallpaperSlot(this, scope, bmp);
-                                if (isScene) {
-                                    Scenes.enableCustomScene(this, slot, true);
-                                }
-                                rebuildMainRows();
-                                showStatusMsg(I18n.format(this, "Added custom wallpaper #{0}.", slot));
-                            }));
-
-            int totalSlots = CustomMedia.getCustomSlotCount(this, scope);
-            int activeSlot = CustomMedia.getActiveCustomSlot(this, scope);
-            for (int s = 1; s <= totalSlots; s++) {
-                final int slot = s;
-                boolean exists = isScene
-                        ? CustomMedia.hasCustomSceneWallpaper(this, slot)
-                        : CustomMedia.hasCustomClassicWallpaper(this, slot);
-                if (!exists) continue;
-                final String slotTitle = tr("Custom Wallpaper #") + slot;
-                boolean isSelected = isScene
-                        ? Scenes.isSceneEnabled(this, Scenes.customSlotToId(slot))
-                        : (activeSlot == slot);
-                choiceRow(slotTitle,
-                        isScene
-                                ? tr("Tap to toggle in scene rotation · Long-press or use actions below")
-                                : tr("Tap to set as active wallpaper"),
-                        isSelected,
-                        () -> {
-                            CustomMedia.setActiveCustomSlot(this, scope, slot);
-                            if (isScene) {
-                                String cid = Scenes.customSlotToId(slot);
-                                Scenes.enableCustomScene(this, slot, !Scenes.isSceneEnabled(this, cid));
-                            }
-                            rebuildMainRows();
-                        });
-                row("   ↻  " + tr("Replace Wallpaper #") + slot,
-                        () -> tr("Choose image ›"),
-                        () -> CustomMedia.showImageFilePicker(
-                                this,
-                                slotTitle,
-                                false,
-                                1920,
-                                1080,
-                                tr("Remove this wallpaper"),
-                                () -> {
-                                    CustomMedia.removeCustomWallpaperSlot(this, scope, slot);
-                                    rebuildMainRows();
-                                },
-                                bmp -> {
-                                    if (isScene) {
-                                        CustomMedia.setCustomSceneWallpaper(this, slot, bmp);
-                                    } else {
-                                        CustomMedia.setCustomClassicWallpaper(this, slot, bmp);
-                                    }
-                                    CustomMedia.setActiveCustomSlot(this, scope, slot);
-                                    rebuildMainRows();
-                                }));
-                row("   🗑  " + tr("Remove Wallpaper #") + slot,
-                        () -> "",
-                        () -> {
-                            CustomMedia.removeCustomWallpaperSlot(this, scope, slot);
-                            rebuildMainRows();
-                        });
-            }
-        } else if (subMode == CustomMedia.CUSTOM_MODE_FOLDER_SHUFFLE) {
-            section(tr("SHUFFLE FOLDER"));
-            row("📁  " + tr("Select wallpaper folder…"),
-                    () -> CustomMedia.getWallpaperShuffleFolderSummary(this, scope),
-                    () -> CustomMedia.showFolderPicker(
-                            this,
-                            scope,
-                            tr("Select Wallpaper Folder"),
-                            folder -> rebuildMainRows()));
-
-            String folderPath = CustomMedia.getWallpaperShuffleFolder(this, scope);
-            if (!folderPath.isEmpty()) {
-                java.io.File dir = new java.io.File(folderPath);
-                List<java.io.File> files = CustomMedia.listFolderImages(dir);
-                if (!files.isEmpty()) {
-                    section(tr("WALLPAPERS IN FOLDER (TAP TO ENABLE / DISABLE)"));
-                    for (final java.io.File imgFile : files) {
-                        final String abs = imgFile.getAbsolutePath();
-                        boolean enabled = !CustomMedia.isFolderImageDisabled(this, scope, abs);
-                        choiceRow("🖼️  " + imgFile.getName(),
-                                enabled ? tr("Enabled in shuffle")
-                                        : tr("Disabled"),
-                                enabled,
-                                () -> {
-                                    boolean nowDisabled = !CustomMedia.isFolderImageDisabled(this, scope, abs);
-                                    CustomMedia.setFolderImageDisabled(this, scope, abs, nowDisabled);
-                                    rebuildMainRows();
-                                });
-                    }
-                }
-            }
-        } else if (subMode == CustomMedia.CUSTOM_MODE_REDDIT) {
-            section(tr("REDDIT WALLPAPER OPTIONS"));
-            row(tr("Auto-change interval"),
-                    () -> CustomMedia.getRedditIntervalLabel(this, scope),
-                    () -> {
-                        CustomMedia.cycleRedditIntervalMinutes(this, scope);
-                        refreshAll();
-                    });
-            row("⏭  " + I18n.t(this, "next_wallpaper"),
-                    () -> tr("Skip now ›"),
-                    () -> {
-                        showStatusMsg(tr("Fetching next Reddit wallpaper…"));
-                        CustomMedia.fetchNextRedditWallpaperAsync(this, scope, () ->
-                                showStatusMsg(tr("Reddit wallpaper updated.")));
-                    });
-            row("＋  " + tr("Add custom subreddit…"),
-                    () -> "r/…",
-                    () -> promptAddCustomSubredditDialog(scope));
-
-            section(tr("SUBREDDITS (SELECT SINGLE OR MULTIPLE)"));
-            java.util.Set<String> activeSubs = CustomMedia.getRedditSubreddits(this, scope);
-            List<String> allSubs = CustomMedia.getAllKnownRedditSubreddits(this, scope);
-            for (final String sub : allSubs) {
-                boolean on = false;
-                for (String a : activeSubs) {
-                    if (a.equalsIgnoreCase(sub)) {
-                        on = true;
-                        break;
-                    }
-                }
-                choiceRow("r/" + sub,
-                        on ? tr("Selected") : tr("Tap to include"),
-                        on,
-                        () -> {
-                            CustomMedia.toggleRedditSubreddit(this, scope, sub);
-                            CustomMedia.fetchNextRedditWallpaperAsync(this, scope, null);
-                            rebuildMainRows();
-                        });
-            }
-        }
-    }
-
-    private void promptAddCustomSubredditDialog(final String scope) {
-        android.widget.EditText in = new android.widget.EditText(this);
-        in.setSingleLine(true);
-        in.setHint(tr("e.g. WallpaperDump, ImaginaryLandscapes"));
-        AlertDialog dlg = dialog(tr("Add Subreddit"))
-                .setView(in)
-                .setPositiveButton(tr("Add"), (d, w) -> {
-                    String sub = in.getText().toString().trim();
-                    if (!sub.isEmpty()) {
-                        CustomMedia.addCustomRedditSubreddit(this, scope, sub);
-                        CustomMedia.fetchNextRedditWallpaperAsync(this, scope, null);
-                        rebuildMainRows();
-                    }
-                })
-                .setNegativeButton(tr("Cancel"), null)
-                .show();
-        Ui.setupDialogEditText(in, dlg);
-        in.requestFocus();
-    }
-
-    private void subMenuAmbientThemes() {
-        mainHeadView.setText(tr("Ambient colour themes"));
-        backSubMenuRow();
-        section(tr("AMBIENT THEMES"));
-        String cur = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
-        for (int i = 0; i < MainActivity.WALL_KEYS.length; i++) {
-            final String key = MainActivity.WALL_KEYS[i];
-            final String name = MainActivity.wallName(this, i);
-            choiceRow(name, null, key.equals(cur), () -> {
-                Profiles.homePrefs(this).edit().putString("wallpaper", key).apply();
-                rebuildMainRows();
             });
         }
     }
@@ -4201,135 +3677,6 @@ public class SettingsActivity extends Activity {
         list.addView(r, lp);
     }
 
-    private void pickCustomClassicWallpaper() {
-        CustomMedia.showImageFilePicker(
-                this,
-                tr("Choose custom background image"),
-                false,
-                1920,
-                1080,
-                null,
-                null,
-                bmp -> {
-                    if (CustomMedia.setCustomClassicWallpaper(this, bmp)) {
-                        SCENE_THUMB_CACHE.remove("custom_classic");
-                        Profiles.homePrefs(this).edit().putString("wallpaper", MainActivity.CUSTOM_WALL_KEY).apply();
-                        rebuildMainRows();
-                        showStatusMsg(tr("Custom background updated."));
-                    } else {
-                        Toast.makeText(
-                                this,
-                                tr("Could not load selected image."),
-                                Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-
-    private void customClassicPhotoRow(boolean checked) {
-        LinearLayout r = new LinearLayout(this);
-        r.setOrientation(LinearLayout.HORIZONTAL);
-        r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setFocusable(true);
-        r.setClickable(true);
-        r.setLongClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(u(13));
-        bg.setColor(0x14FFFFFF);
-        r.setBackground(bg);
-
-        int tw = u(46), th = u(26);
-        ImageView thumb = new ImageView(this);
-        thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        if (CustomMedia.hasCustomClassicWallpaper(this)) {
-            bindCustomThumbAsync(thumb, "custom_classic", tw * 2, th * 2, () -> {
-                Bitmap full = CustomMedia.getCustomClassicWallpaper(this);
-                if (full == null) return null;
-                Bitmap scaled = Bitmap.createScaledBitmap(full, tw * 2, th * 2, true);
-                return scaled;
-            });
-        } else {
-            thumb.setImageBitmap(buildPlaceholderThumb(tw * 2, th * 2));
-        }
-        final float trad = u(5.5f);
-        thumb.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View v, Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), trad);
-            }
-        });
-        thumb.setClipToOutline(true);
-        LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
-        r.addView(thumb, thlp);
-
-        TextView l = new TextView(this);
-        l.setText(tr("Custom"));
-        l.setTextColor(0xEBF4F4F6);
-        l.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(l, 14.5f);
-        l.setSingleLine(true);
-        r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        int cs = u(17);
-        ImageView mark = new ImageView(this);
-        if (checked) {
-            mark.setImageBitmap(Glyphs.get("check", cs, Color.WHITE));
-        }
-        r.addView(mark, new LinearLayout.LayoutParams(cs, cs));
-
-        r.setOnFocusChangeListener((view, has) -> {
-            if (has) {
-                inRows = true;
-                updateSidebarStyles();
-                updateHintText(false);
-            }
-            bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
-            l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
-            if (checked) {
-                mark.setImageBitmap(Glyphs.get("check", cs, has ? 0xFF111114 : Color.WHITE));
-            }
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
-        });
-
-        r.setOnClickListener(view -> {
-            if (!CustomMedia.hasCustomClassicWallpaper(this)) {
-                pickCustomClassicWallpaper();
-                return;
-            }
-            if (!checked) {
-                String[] opts = {
-                    tr("Use custom background"),
-                    tr("Choose image…")
-                };
-                dialog(tr("Custom"))
-                        .setItems(opts, (d, which) -> {
-                            if (which == 0) {
-                                Profiles.homePrefs(this).edit().putString("wallpaper", MainActivity.CUSTOM_WALL_KEY).apply();
-                                rebuildMainRows();
-                            } else {
-                                pickCustomClassicWallpaper();
-                            }
-                        })
-                        .show();
-            } else {
-                pickCustomClassicWallpaper();
-            }
-        });
-
-        r.setOnLongClickListener(view -> {
-            pickCustomClassicWallpaper();
-            return true;
-        });
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, u(40));
-        lp.bottomMargin = u(5);
-        list.addView(r, lp);
-    }
-
     private void pickFolderForSceneShuffle() {
         CustomMedia.showFolderPicker(
                 this,
@@ -4482,134 +3829,6 @@ public class SettingsActivity extends Activity {
         list.addView(r, lp);
     }
 
-    private void pickFolderForClassicShuffle() {
-        CustomMedia.showFolderPicker(
-                this,
-                CustomMedia.SCOPE_CLASSIC,
-                tr("Choose background folder to shuffle"),
-                dir -> {
-                    SCENE_THUMB_CACHE.remove("folder_classic");
-                    Profiles.homePrefs(this).edit().putString("wallpaper", MainActivity.FOLDER_SHUFFLE_WALL_KEY).apply();
-                    rebuildMainRows();
-                    showStatusMsg(I18n.format(this, "Folder shuffle enabled: {0}", dir.getName()));
-                });
-    }
-
-    private void folderShuffleClassicRow(boolean checked) {
-        boolean hasFolder = CustomMedia.hasWallpaperShuffleFolder(this, CustomMedia.SCOPE_CLASSIC);
-        final String baseTitle = tr("Folder shuffle");
-
-        LinearLayout r = new LinearLayout(this);
-        r.setOrientation(LinearLayout.HORIZONTAL);
-        r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setFocusable(true);
-        r.setClickable(true);
-        r.setLongClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(u(13));
-        bg.setColor(0x14FFFFFF);
-        r.setBackground(bg);
-
-        int tw = u(46), th = u(26);
-        ImageView thumb = new ImageView(this);
-        thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        if (hasFolder) {
-            bindCustomThumbAsync(thumb, "folder_classic", tw * 2, th * 2,
-                    () -> CustomMedia.getNextShuffledFolderBitmap(this, CustomMedia.SCOPE_CLASSIC, tw * 2, th * 2, false));
-        } else {
-            thumb.setImageBitmap(buildPlaceholderThumb(tw * 2, th * 2));
-        }
-        final float trad = u(5.5f);
-        thumb.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View v, Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), trad);
-            }
-        });
-        thumb.setClipToOutline(true);
-        LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
-        r.addView(thumb, thlp);
-
-        TextView l = new TextView(this);
-        l.setText(baseTitle);
-        l.setTextColor(0xEBF4F4F6);
-        l.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(l, 14.5f);
-        l.setSingleLine(true);
-        l.setEllipsize(TextUtils.TruncateAt.END);
-        r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (hasFolder) {
-            THUMB_EXEC.execute(() -> {
-                String summary = CustomMedia.getWallpaperShuffleFolderSummary(this, CustomMedia.SCOPE_CLASSIC);
-                if (!summary.isEmpty()) {
-                    runOnUiThread(() -> {
-                        if (!isFinishing()) l.setText(baseTitle + "  ·  " + summary);
-                    });
-                }
-            });
-        }
-
-        int cs = u(17);
-        ImageView mark = new ImageView(this);
-        if (checked) {
-            mark.setImageBitmap(Glyphs.get("check", cs, Color.WHITE));
-        }
-        r.addView(mark, new LinearLayout.LayoutParams(cs, cs));
-
-        r.setOnFocusChangeListener((view, has) -> {
-            if (has) {
-                inRows = true;
-                updateSidebarStyles();
-                updateHintText(false);
-            }
-            bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
-            l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
-            if (checked) {
-                mark.setImageBitmap(Glyphs.get("check", cs, has ? 0xFF111114 : Color.WHITE));
-            }
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
-        });
-
-        r.setOnClickListener(view -> {
-            if (!CustomMedia.hasWallpaperShuffleFolder(this, CustomMedia.SCOPE_CLASSIC)) {
-                pickFolderForClassicShuffle();
-                return;
-            }
-            if (!checked) {
-                String[] opts = {
-                    tr("Use folder shuffle background"),
-                    tr("Choose folder…")
-                };
-                dialog(tr("Folder shuffle"))
-                        .setItems(opts, (d, which) -> {
-                            if (which == 0) {
-                                Profiles.homePrefs(this).edit().putString("wallpaper", MainActivity.FOLDER_SHUFFLE_WALL_KEY).apply();
-                                rebuildMainRows();
-                            } else {
-                                pickFolderForClassicShuffle();
-                            }
-                        })
-                        .show();
-            } else {
-                pickFolderForClassicShuffle();
-            }
-        });
-
-        r.setOnLongClickListener(view -> {
-            pickFolderForClassicShuffle();
-            return true;
-        });
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, u(40));
-        lp.bottomMargin = u(5);
-        list.addView(r, lp);
-    }
-
     private void subMenuLockScreenSettings() {
         mainHeadView.setText(tr("Lock screen settings"));
         backSubMenuRow();
@@ -4627,7 +3846,7 @@ public class SettingsActivity extends Activity {
                     Scenes.cycleLockIdleMinutes(this);
                     refreshAll();
                 });
-        row(tr("Each wallpaper stays"),
+        row(tr("Each scene stays"),
                 () -> Scenes.getStaySeconds(this) + tr(" seconds"),
                 () -> {
                     Scenes.cycleStaySeconds(this);
@@ -4640,19 +3859,6 @@ public class SettingsActivity extends Activity {
         section(tr("NIGHT SCENES"));
         for (Scenes.Spec spec : Scenes.ALL) {
             lockSceneCheckRow(spec.id, spec.title(this), spec.bgAsset);
-        }
-
-        section(tr("CLASSIC WALLPAPERS"));
-        for (int i = 0; i < Scenes.CLASSIC_PHOTOS.length; i++) {
-            String photoFile = Scenes.CLASSIC_PHOTOS[i][0];
-            String id = "photo:" + photoFile;
-            String label = I18n.t(this, Scenes.CLASSIC_PHOTOS[i][1]);
-            lockSceneCheckRow(id, label, "backgrounds/" + photoFile);
-        }
-        String[] gradIds = {"aurora", "midnight", "sunset", "ocean", "graphite"};
-        for (String gid : gradIds) {
-            Scenes.Spec gspec = Scenes.byId(gid);
-            lockSceneCheckRow(gid, gspec.title(this), null);
         }
 
         section(tr("CUSTOM & FOLDER SHUFFLE"));
@@ -4681,7 +3887,7 @@ public class SettingsActivity extends Activity {
         if (assetPath != null && !assetPath.isEmpty()) {
             bindAssetThumbAsync(thumb, assetPath, tw * 2, th * 2);
         } else {
-            Bitmap tbmp = MainActivity.makeWallpaperBase(id);
+            Bitmap tbmp = MainActivity.makeNeutralBackground();
             if (tbmp != null) thumb.setImageBitmap(tbmp);
         }
         final float trad = u(5.5f);
@@ -5013,84 +4219,16 @@ public class SettingsActivity extends Activity {
         list.addView(r, lp);
     }
 
-    private void classicPhotoRow(String label, String assetPath, boolean checked, Runnable onClick) {
-        LinearLayout r = new LinearLayout(this);
-        r.setOrientation(LinearLayout.HORIZONTAL);
-        r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setFocusable(true);
-        r.setClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+    interface Value { String get(); }
 
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(u(13));
-        bg.setColor(0x14FFFFFF);
-        r.setBackground(bg);
-
-        int tw = u(46), th = u(26);
-        ImageView thumb = new ImageView(this);
-        thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        bindAssetThumbAsync(thumb, assetPath, tw * 2, th * 2);
-        final float trad = u(5.5f);
-        thumb.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View v, Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), trad);
-            }
-        });
-        thumb.setClipToOutline(true);
-        LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
-        r.addView(thumb, thlp);
-
-        TextView l = new TextView(this);
-        l.setText(label);
-        l.setTextColor(0xEBF4F4F6);
-        l.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(l, 14.5f);
-        l.setSingleLine(true);
-        r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        int cs = u(17);
-        ImageView mark = new ImageView(this);
-        if (checked) {
-            mark.setImageBitmap(Glyphs.get("check", cs, Color.WHITE));
-        }
-        r.addView(mark, new LinearLayout.LayoutParams(cs, cs));
-
-        r.setOnFocusChangeListener((view, has) -> {
-            if (has) {
-                inRows = true;
-                updateSidebarStyles();
-                updateHintText(false);
-            }
-            bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
-            l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
-            if (checked) {
-                mark.setImageBitmap(Glyphs.get("check", cs, has ? 0xFF111114 : Color.WHITE));
-            }
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
-        });
-        r.setOnClickListener(view -> onClick.run());
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, u(40));
-        lp.bottomMargin = u(5);
-        list.addView(r, lp);
-    }
-
-    interface Value {
-        String get();
-    }
-
-    /** Standard value/cycle row (.srow in couch-tv): bold label on left, muted value on right. */
     View row(String label, Value value, Runnable action) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setFocusable(true);
         r.setClickable(true);
-        r.setPadding(u(16), 0, u(16), 0);
+        r.setPadding(u(16), u(8), u(16), u(8));
+        r.setMinimumHeight(u(39));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -5102,7 +4240,8 @@ public class SettingsActivity extends Activity {
         l.setTextColor(0xEBF4F4F6);
         l.setTypeface(Ui.font(this, "semibold"));
         Ui.textSize(l, 14.5f);
-        l.setSingleLine(true);
+        l.setMaxLines(3);
+        l.setIncludeFontPadding(false);
         l.setEllipsize(TextUtils.TruncateAt.END);
         r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
@@ -5111,6 +4250,8 @@ public class SettingsActivity extends Activity {
         v.setTypeface(Ui.font(this, "medium"));
         Ui.textSize(v, 14f);
         v.setSingleLine(true);
+        v.setMaxWidth(u(144));
+        v.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         vlp.leftMargin = u(10);
@@ -5144,7 +4285,7 @@ public class SettingsActivity extends Activity {
         });
 
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, u(39));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = u(5);
         list.addView(r, lp);
         return r;
@@ -5172,7 +4313,7 @@ public class SettingsActivity extends Activity {
         l.setTextColor(0xEBF4F4F6);
         l.setTypeface(Ui.font(this, "semibold"));
         Ui.textSize(l, 14.5f);
-        l.setSingleLine(true);
+        l.setMaxLines(3);
         l.setEllipsize(TextUtils.TruncateAt.END);
         texts.addView(l);
 
@@ -5180,7 +4321,7 @@ public class SettingsActivity extends Activity {
         v.setTextColor(0x9EFFFFFF);
         v.setTypeface(Ui.font(this, "regular"));
         Ui.textSize(v, 11.5f);
-        v.setSingleLine(true);
+        v.setMaxLines(3);
         v.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

@@ -1559,8 +1559,6 @@ public final class CustomMedia {
                         if (act != null) {
                             if (SCOPE_SCENE.equals(scope) && Scenes.isScenesLook(act) && act.sceneHome != null) {
                                 act.sceneHome.sceneView.onRedditWallpaperUpdated();
-                            } else if (SCOPE_CLASSIC.equals(scope) && !Scenes.isScenesLook(act)) {
-                                act.setWallpaper(act.wallStyle);
                             }
                         }
                     });

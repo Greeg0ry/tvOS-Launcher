@@ -11,10 +11,8 @@ TOKEN = re.compile(r'''//[^\n]*|/\*[\s\S]*?\*/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)
 def data_keys(root):
     """Labels passed to I18n via the launcher's UI data tables."""
     tables = {
-        'Scenes.java': {'CLASSIC_PHOTOS': 1, 'CLASSIC_GRADIENTS': 1},
         'ControlPanelOverlay.java': {'ALL_CP_ITEMS': 0},
         'Profiles.java': {'COLOR_NAMES': None, 'EMOJI_NAMES': None},
-        'HomeDashboard.java': {'PRAYER_METHOD_NAMES': None},
     }
     for filename, arrays in tables.items():
         source = (root / 'src/com/techgenius/tvoslauncher' / filename).read_text()
