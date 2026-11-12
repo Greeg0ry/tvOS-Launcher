@@ -185,7 +185,7 @@ final class Weather {
         for (Hour h : src.hours) {
             if (h.time < hourStart || d.hours.size() >= 6) continue;
             if (d.hours.isEmpty()) {
-                h.label = I18n.s(c, "Now", "Şimdi");
+                h.label = I18n.t(c, "Now");
                 h.temp = d.temp;
                 h.code = d.code;
                 h.day = d.day;
@@ -199,7 +199,7 @@ final class Weather {
         SimpleDateFormat dayFmt = new SimpleDateFormat("EEE", I18n.locale(c));
         for (Day x : src.days) {
             if (x.date.compareTo(today) < 0 || d.days.size() >= 5) continue;
-            x.label = d.days.isEmpty() ? I18n.s(c, "Today", "Bugün") : dayFmt.format(ymd.parse(x.date));
+            x.label = d.days.isEmpty() ? I18n.t(c, "Today") : dayFmt.format(ymd.parse(x.date));
             d.days.add(x);
         }
         if (!d.days.isEmpty()) {
@@ -588,21 +588,7 @@ final class Weather {
     }
 
     static String describe(Context c, int code, boolean day) {
-        if (!I18n.isTr(c)) return I18n.t(c, describe(code, day));
-        switch (code) {
-            case 0: return day ? "Güneşli" : "Açık";
-            case 1: return day ? "Çoğunlukla Güneşli" : "Çoğunlukla Açık";
-            case 2: return "Parçalı Bulutlu";
-            case 3: return "Bulutlu";
-            case 45: case 48: return "Sisli";
-            case 51: case 53: case 55: case 56: case 57: return "Çiseleme";
-            case 61: case 63: case 80: case 81: return "Yağmurlu";
-            case 65: case 82: return "Şiddetli Yağmur";
-            case 66: case 67: return "Karla Karışık Yağmur";
-            case 71: case 73: case 75: case 77: case 85: case 86: return "Karlı";
-            case 95: case 96: case 99: return "Fırtına";
-            default: return "";
-        }
+        return I18n.t(c, describe(code, day));
     }
 
     private static String get(String url) throws Exception {

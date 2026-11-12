@@ -13,11 +13,12 @@ source (Nayuki, MIT) under `src/io/nayuki/qrcodegen`.
 | Path | Responsibility |
 |---|---|
 | `MainActivity.java` | Home screen: grid/dock, focus & move, launch zoom, carousel (Continue Watching + news + recommendations), status row, Liquid Glass, Control Center (incl. Memory/Clean), profile switcher, idle mode, menus |
+| `I18n.java`, `RussianTranslations.java` | English/Russian UI, dates, templates and symbolic keys; one Russian dictionary |
 | `SetupActivity.java` | First-time setup pages (Apple-style, one question per page) |
 | `SettingsActivity.java` | All settings, tvOS list layout |
 | `Suggestions.java` | JustWatch / TMDB / Stremio (Cinemeta) recommendations: fetch, cache, artwork, deep links |
 | `Search.java` | Search data: JustWatch title search (every service in India) and Cinemeta, matching each service to its installed app, Open / Get, recent searches |
-| `SearchPanel.java` | The search screen: one-row keyboard (English, digits, Hindi, voice), Apps & Settings and Movies & TV rows, the How to Watch sheet |
+| `SearchPanel.java` | The search screen: one-row keyboard (Russian, English, digits, voice), Apps & Settings and Movies & TV rows, the How to Watch sheet |
 | `MediaWatchService.java` | Notification listener → media sessions → Continue Watching store; DND access |
 | `Profiles.java` | Profiles (max 3), unique emoji avatars, per-profile storage names |
 | `SleepReceiver.java` | Sleep via device admin (or PowerService); sleep timer alarm |
@@ -31,6 +32,11 @@ source (Nayuki, MIT) under `src/io/nayuki/qrcodegen`.
 | `AirPlayGuard.java` | Keeps the AirPlay receiver app visible: mDNS check, restart via its settings / start-up receivers |
 | `Glyphs.java` | Line glyphs drawn in code (Control Center, Presentation tile, inputs, refresh) |
 | `Ui.java` | Resolution-based sizing (960×540 design grid), fonts |
+| `Scenes.java`, `SceneHome.java` | Scene rendering and dock; worker preparation of current/next scene, UI draws ready layers |
+| `CustomMedia.java`, `WeightedLruCache.java` | Custom artwork and byte-budgeted LRU; evictions release references without recycling borrowed images |
+| `LatestTask.java` | One active/one pending preparation, generation checks and disposal of unpublished obsolete results |
+| `HomeDashboard.java`, `RequestGroup.java` | Dashboard data; shared requests per signature, bounded workers, failure backoff |
+| `VolumePollPolicy.java` | Event-driven idle volume handling and slower fallback polling, faster checks only during a hold |
 | `present/Presenter.java` | Presentation entry point: settings, server lifecycle, player bridge, boot start |
 | `present/AdminServer.java` | HTTP server (port 8080), API, streaming multipart uploads |
 | `present/Repo.java`, `Model.java`, `Pairing.java` | SQLite storage, slide model & validation, pairing tokens |
@@ -70,9 +76,17 @@ source (Nayuki, MIT) under `src/io/nayuki/qrcodegen`.
 
 ## Performance (Mi Box, Mali-450 MP, GLES 2.0)
 
-- Startup: the app list (package manager, banners, icon colours) and the wallpaper are prepared on
-  background threads while the window's views are built: cold start ~1.0 s → ~0.86 s on a 1 GHz
-  Android 9 TV.
+- Startup: the app list and wallpaper are prepared on background threads. The shell appears without
+  waiting for package-manager queries; only the current catalog generation is applied on the UI thread.
+- Scenes prepare images, clock fonts and glass on a worker, retaining the displayed/transition or next
+  scene. `onDraw` reads ready layers. Published bitmaps are released by reference; only unpublished
+  obsolete results may be recycled. Device frame times for this change are pending (X4Q Pro deferred).
+- Custom wallpaper cache: 8–24 MiB depending on heap; custom icons: 2–8 MiB; settings thumbnails: 4 MiB.
+  Android memory-pressure callbacks trim these caches. These limits do not include active Views or GPU memory.
+- Dashboard fetches share one in-flight task per signature, with three worker threads, a 24-task queue
+  and 30-second failure backoff. Explicit refresh bypasses backoff while still sharing running work.
+- Volume handling waits for native callbacks while idle; without a native listener (or in projector mode),
+  idle fallback polls every 400 ms plus dump time. The same single writer thread handles Binder dumps.
 
 - No perpetual animations (no wallpaper drift, no idle sway): idle draws 0 frames.
 - Nothing is rendered in software on the UI thread during transitions (the original glass cache

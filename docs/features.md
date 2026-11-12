@@ -15,7 +15,7 @@ Everything tvOS Launcher does, by area. For how the code is organised see
 The first time tvOS Launcher opens it walks through Apple-style pages, one question each (OK moves on, Back
 goes back):
 
-1. **Welcome**, fading through Indian and world languages, then *Get Started*.
+1. **Welcome**, in Russian or English, then *Get Started*.
 2. **Create Your Profile**: a name and an emoji avatar.
 3. **Choose a look**: the background, previewed live behind the page.
 4. **Your Home Screen** (this profile): Recommendations, News and Continue Watching on/off.
@@ -47,6 +47,12 @@ Settings → Home → **Run setup again** repeats it. If Home is pressed mid-way
 - **Background**: Aurora, Midnight, Sunset, Ocean or Graphite (per profile).
 
 ### Remote controls
+
+Home shows its shell while the app catalog loads in the background. Scene images and glass
+textures are prepared on workers; rapid background changes apply only the latest selection.
+Dashboard widgets share requests with the same settings and delay automatic retries for 30 seconds
+after a failure. Manual refresh can retry immediately.
+
 
 | Where | Key | Action |
 |---|---|---|
@@ -87,13 +93,13 @@ remote, the Search key on remotes that have one, or just start typing on a keybo
 Assistant/mic button on most Android TV remotes is taken by Google Assistant before any app sees
 it, so it can't open tvOS Launcher's Search.)
 
-- **Keyboard**: a–z, space, delete, **123** (digits and punctuation), **अआ** (Hindi letters) and
+- **Keyboard**: Russian and English letters, space, delete, **123** (digits and punctuation), an alphabet switch and
   clear. A USB/Bluetooth keyboard and the remote's number keys type too.
 - **Dictation**: the **mic** beside the search field (Up from the keyboard), or the remote's
   search/mic button on Home or in Search. Where the TV has Google's voice service, the words appear
   in the field as you speak and results follow; the microphone is asked for on screen the first
   time. Esc on a keyboard, or Back, closes Search. Without that permission or service, the TV's own voice prompt (Google's) listens instead.
-  English and Hindi (Indian English, with Hindi as a second language).
+  Russian or English according to the interface language, with the other language as an additional recognition language.
 - **Before typing**: your recent searches (per profile) and what's trending in the carousel.
 - **Apps & Settings** (instant, no internet): installed apps including hidden ones, TV inputs
   ("HDMI 2"), tvOS Launcher screens (Control Center, Weather, Switch Profile, Home Settings) and TV settings

@@ -33,7 +33,7 @@ def calls(path):
     tokens = [(m.group(), m.start(), m.end()) for m in TOKEN.finditer(source)
               if not m.group().startswith(('//', '/*'))]
     for i, (name, start, _) in enumerate(tokens):
-        if name not in ('s', 't', 'tr', 'format') or i + 1 >= len(tokens) or tokens[i + 1][0] != '(':
+        if name not in ('t', 'tr', 'format') or i + 1 >= len(tokens) or tokens[i + 1][0] != '(':
             continue
         if name != 'tr' and (i < 2 or tokens[i - 2][0] != 'I18n'):
             continue
@@ -52,8 +52,9 @@ def calls(path):
             if value in ('(', '[', '{'): depth += 1
             if value in (')', ']', '}'): depth -= 1
             current.append(tok)
-        if end is None or len(args) < 2 or (name != 'format' and len(args) > 3): continue
-        english = args[1] if name != 'tr' or len(args) == 3 else args[0]
+        contextual = name != 'tr' or path.name == 'CleanYourTv.java'
+        if end is None or len(args) < (2 if contextual else 1): continue
+        english = args[1] if contextual else args[0]
         if not english or not any(t[0].startswith('"') for t in english): continue
         literal = all(t[0].startswith('"') or t[0] == '+' for t in english)
         value = ''.join(json.loads(t[0]) for t in english if t[0].startswith('"')) if literal else None

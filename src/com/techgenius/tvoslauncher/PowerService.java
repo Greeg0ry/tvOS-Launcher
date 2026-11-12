@@ -56,6 +56,11 @@ public class PowerService extends AccessibilityService {
     private Thread volWatchThread;
     private volatile boolean audioDumpWatchActive = false;
     private Thread audioDumpWatchThread;
+    private final Object volumePollSignal = new Object();
+    private volatile android.os.ParcelFileDescriptor activeDumpRead, activeDumpWrite;
+    private final java.util.concurrent.ExecutorService dumpWriter = new java.util.concurrent.ThreadPoolExecutor(
+            1, 1, 30, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(1),
+            task -> { Thread thread = new Thread(task, "volume-dump-io"); thread.setDaemon(true); return thread; });
     private volatile long serviceConnectedElapsedMs = 0L;
     private static final long VOL_REPEAT_INITIAL_MS = 280L;
     private static final long VOL_REPEAT_INTERVAL_MS = 85L;
@@ -226,6 +231,7 @@ public class PowerService extends AccessibilityService {
             }
             handler.removeCallbacks(volRepeatRunnable);
             volDir = dir;
+            wakeVolumeWatcher();
             volDownTime = now;
             lastKeyActiveTime = now;
             handler.postDelayed(volRepeatRunnable, 270L);
@@ -248,6 +254,7 @@ public class PowerService extends AccessibilityService {
             }
             handler.removeCallbacks(volRepeatRunnable);
             volDir = dir;
+            wakeVolumeWatcher();
             long now = SystemClock.uptimeMillis();
             volDownTime = now;
             lastKeyActiveTime = now;
@@ -267,6 +274,7 @@ public class PowerService extends AccessibilityService {
                     stepVolume(dir);
                 }
                 volDir = dir;
+                wakeVolumeWatcher();
                 handler.removeCallbacks(volRepeatRunnable);
                 handler.postDelayed(volRepeatRunnable, VOL_REPEAT_INTERVAL_MS);
                 return;
@@ -279,6 +287,7 @@ public class PowerService extends AccessibilityService {
                     stepVolume(dir);
                 }
                 volDir = dir;
+                wakeVolumeWatcher();
                 handler.removeCallbacks(volRepeatRunnable);
                 handler.postDelayed(volRepeatRunnable, VOL_REPEAT_INTERVAL_MS);
                 return;
@@ -287,6 +296,7 @@ public class PowerService extends AccessibilityService {
             lastDownTime = now;
             if (volDir != dir) {
                 volDir = dir;
+                wakeVolumeWatcher();
                 volDownTime = now;
                 handler.removeCallbacks(volRepeatRunnable);
                 handler.postDelayed(volRepeatRunnable, VOL_REPEAT_INITIAL_MS);
@@ -342,6 +352,7 @@ public class PowerService extends AccessibilityService {
         unregisterVolumeLongPressListener();
         stopVolumeWatcher();
         stopAudioDumpVolumeWatcher();
+        dumpWriter.shutdownNow();
         if (instance == this) instance = null;
         Context appCtx = getApplicationContext();
         if (LocalAdb.shouldAutoRepairAccessibility(appCtx)) {
@@ -488,6 +499,7 @@ public class PowerService extends AccessibilityService {
             volDownTime = SystemClock.uptimeMillis();
             if (volDir != dir) {
                 volDir = dir;
+                wakeVolumeWatcher();
                 stepVolume(dir);
                 handler.removeCallbacks(volRepeatRunnable);
                 handler.postDelayed(volRepeatRunnable, VOL_REPEAT_INTERVAL_MS);
@@ -547,26 +559,36 @@ public class PowerService extends AccessibilityService {
      *   0 if InputReader state was read and all devices report "KeyDowns: 0 keys currently down"
      *  -1 if inputBinder is unavailable or dump could not be parsed
      */
-    private static int checkHardwareKeyDownState(android.os.IBinder inputBinder) {
+    private void wakeVolumeWatcher() {
+        synchronized (volumePollSignal) { volumePollSignal.notifyAll(); }
+    }
+
+    private void writeBinderDump(android.os.IBinder binder,
+                                 android.os.ParcelFileDescriptor read,
+                                 android.os.ParcelFileDescriptor write) throws Exception {
+        activeDumpRead = read;
+        activeDumpWrite = write;
+        try {
+            dumpWriter.execute(() -> {
+                try { binder.dump(write.getFileDescriptor(), new String[0]); }
+                catch (Exception ignored) { }
+                finally { try { write.close(); } catch (Exception ignored) { } }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            read.close();
+            write.close();
+            throw e;
+        }
+    }
+
+    private int checkHardwareKeyDownState(android.os.IBinder inputBinder) {
         if (inputBinder == null) return -1;
         android.os.ParcelFileDescriptor[] pipe = null;
         try {
             pipe = android.os.ParcelFileDescriptor.createPipe();
             final android.os.ParcelFileDescriptor readPfd = pipe[0];
             final android.os.ParcelFileDescriptor writePfd = pipe[1];
-            Thread writer = new Thread(() -> {
-                try {
-                    inputBinder.dump(writePfd.getFileDescriptor(), new String[0]);
-                } catch (Throwable ignored) {
-                } finally {
-                    try {
-                        writePfd.close();
-                    } catch (Throwable ignored) {
-                    }
-                }
-            }, "input-dump-writer");
-            writer.setDaemon(true);
-            writer.start();
+            writeBinderDump(inputBinder, readPfd, writePfd);
 
             boolean sawAnyKeyDownsLine = false;
             boolean anyDown = false;
@@ -611,6 +633,8 @@ public class PowerService extends AccessibilityService {
      */
     private synchronized void startAudioDumpVolumeWatcher() {
         if (audioDumpWatchActive && audioDumpWatchThread != null && audioDumpWatchThread.isAlive()) {
+            // Settings or native-listener availability may have changed while it was idle.
+            wakeVolumeWatcher();
             return;
         }
         audioDumpWatchActive = true;
@@ -626,7 +650,8 @@ public class PowerService extends AccessibilityService {
             long lastFastPulseMs = 0L;
             int lastFastPulseDir = 0;
 
-            while (instance == this && audioDumpWatchActive && ButtonMapper.isVolumeHoldFixEnabled(appCtx)) {
+            while (instance == this && audioDumpWatchThread == Thread.currentThread()
+                    && audioDumpWatchActive && ButtonMapper.isVolumeHoldFixEnabled(appCtx)) {
                 try {
                     int mode = ButtonMapper.getVolumeHoldFixMode(appCtx);
                     // In Mode 1 or Mode 3, when Persistent ADB Mode is active and getevent stream is connected, let getevent handle it
@@ -675,6 +700,24 @@ public class PowerService extends AccessibilityService {
                         }
                     }
 
+                    // The native listener reports DOWN/UP. Wait without dumping while idle;
+                    // InputReader is only a release safety net during an actual hold.
+                    if (!VolumePollPolicy.needsAudioDump(volLongPressRegistered, mode)) {
+                        if (volDir == 0) {
+                            synchronized (volumePollSignal) {
+                                if (volDir == 0 && audioDumpWatchActive) volumePollSignal.wait();
+                            }
+                        } else {
+                            if (checkHardwareKeyDownState(inputBinder) == 0) {
+                                volDir = 0;
+                                handler.removeCallbacks(volRepeatRunnable);
+                                handler.post(() -> onVolumeKeyState(0, false, false));
+                            }
+                            Thread.sleep(VolumePollPolicy.delayMillis(true, mode, true));
+                        }
+                        continue;
+                    }
+
                     // Mode 3 (Onn TV Box) fast release loop: while key is down, skip AudioService dump completely
                     // and poll InputReader KeyDowns every 10ms so release stops volume steps with 0 overshoot!
                     if (mode == ButtonMapper.VOLUME_FIX_MODE_3 && (wmKeyIsDown || volDir != 0)) {
@@ -700,20 +743,7 @@ public class PowerService extends AccessibilityService {
                     final android.os.ParcelFileDescriptor writePfd = pipe[1];
                     final android.os.IBinder binderRef = audioBinder;
 
-                    // Run dump() on a helper thread and read lines on this thread
-                    Thread writer = new Thread(() -> {
-                        try {
-                            binderRef.dump(writePfd.getFileDescriptor(), new String[0]);
-                        } catch (Throwable ignored) {
-                        } finally {
-                            try {
-                                writePfd.close();
-                            } catch (Throwable ignored) {
-                            }
-                        }
-                    }, "audio-dump-writer");
-                    writer.setDaemon(true);
-                    writer.start();
+                    writeBinderDump(binderRef, readPfd, writePfd);
 
                     String secondLastWmLine = null;
                     String lastWmLine = null;
@@ -905,10 +935,9 @@ public class PowerService extends AccessibilityService {
                         }
                     }
 
-                    long sleepMs = (mode == ButtonMapper.VOLUME_FIX_MODE_3)
-                            ? (wmKeyIsDown ? 12L : 35L)
-                            : (wmKeyIsDown ? 45L : 60L);
-                    Thread.sleep(sleepMs);
+                    long sleepMs = VolumePollPolicy.delayMillis(volLongPressRegistered, mode, wmKeyIsDown);
+                    synchronized (volumePollSignal) { volumePollSignal.wait(Math.max(1, sleepMs)); }
+
                 } catch (InterruptedException ie) {
                     break;
                 } catch (Throwable t) {
@@ -929,6 +958,10 @@ public class PowerService extends AccessibilityService {
 
     private synchronized void stopAudioDumpVolumeWatcher() {
         audioDumpWatchActive = false;
+        wakeVolumeWatcher();
+        try { if (activeDumpRead != null) activeDumpRead.close(); } catch (Exception ignored) { }
+        try { if (activeDumpWrite != null) activeDumpWrite.close(); } catch (Exception ignored) { }
+        activeDumpRead = activeDumpWrite = null;
         volDir = 0;
         handler.removeCallbacks(volRepeatRunnable);
         if (audioDumpWatchThread != null) {

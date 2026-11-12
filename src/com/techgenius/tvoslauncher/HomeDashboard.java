@@ -50,8 +50,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Default Home Dashboard displayed when no application is selected, when focus is on
@@ -90,29 +88,42 @@ public final class HomeDashboard {
     private static final String KEY_RELEASES_CACHE_TS = "releases_cache_ts";
 
     /**
-     * Supported countries for Latest Releases widget: { ISO-3166 alpha-2 code, Display Name, UI language code }.
+     * Supported countries for Latest Releases widget: { ISO-3166 alpha-2 code, Display Name }.
      */
     public static final String[][] RELEASES_COUNTRIES = {
-        {"TR", "Türkiye (Turkey)", "tr"},
-        {"AZ", "Azərbaycan (Azerbaijan)", "az"},
-        {"US", "United States", "en"},
-        {"GB", "United Kingdom", "en"},
-        {"DE", "Deutschland (Germany)", "de"},
-        {"FR", "France", "fr"},
-        {"ES", "España (Spain)", "es"},
-        {"IT", "Italia (Italy)", "it"},
-        {"PT", "Portugal", "pt"},
-        {"BR", "Brasil (Brazil)", "pt"},
-        {"RU", "Россия (Russia)", "ru"},
-        {"SA", "السعودية (Saudi Arabia)", "ar"},
-        {"EG", "مصر (Egypt)", "ar"},
-        {"IN", "India", "en"},
-        {"KR", "South Korea", "en"},
-        {"JP", "Japan", "en"}
+        {"TR", "Türkiye (Turkey)"},
+        {"AZ", "Azərbaycan (Azerbaijan)"},
+        {"US", "United States"},
+        {"GB", "United Kingdom"},
+        {"DE", "Deutschland (Germany)"},
+        {"FR", "France"},
+        {"ES", "España (Spain)"},
+        {"IT", "Italia (Italy)"},
+        {"PT", "Portugal"},
+        {"BR", "Brasil (Brazil)"},
+        {"RU", "Россия (Russia)"},
+        {"SA", "السعودية (Saudi Arabia)"},
+        {"EG", "مصر (Egypt)"},
+        {"IN", "India"},
+        {"KR", "South Korea"},
+        {"JP", "Japan"}
     };
 
-    private static final ExecutorService EXEC = Executors.newCachedThreadPool();
+    private static final java.util.concurrent.ThreadPoolExecutor EXEC =
+            new java.util.concurrent.ThreadPoolExecutor(3, 3, 30, java.util.concurrent.TimeUnit.SECONDS,
+                    new java.util.concurrent.ArrayBlockingQueue<>(24), task -> {
+                        Thread thread = new Thread(task, "dashboard-io");
+                        thread.setDaemon(true);
+                        return thread;
+                    });
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final RequestGroup<List<Suggestions.Item>> RELEASE_REQUESTS =
+            new RequestGroup<>(EXEC, task -> MAIN.post(task), android.os.SystemClock::uptimeMillis, 30_000);
+    private static final RequestGroup<PrayerData> PRAYER_REQUESTS =
+            new RequestGroup<>(EXEC, task -> MAIN.post(task), android.os.SystemClock::uptimeMillis, 30_000);
+    private static final RequestGroup<List<MatchItem>> FOOTBALL_REQUESTS =
+            new RequestGroup<>(EXEC, task -> MAIN.post(task), android.os.SystemClock::uptimeMillis, 30_000);
+    static { EXEC.allowCoreThreadTimeOut(true); }
 
     private HomeDashboard() {}
 
@@ -184,17 +195,7 @@ public final class HomeDashboard {
     // =========================================================================
 
     public static String defaultCountryForUiLang(Context c) {
-        String lang = I18n.getLang(c);
-        if ("tr".equals(lang)) return "TR";
-        if ("az".equals(lang)) return "AZ";
-        if ("de".equals(lang)) return "DE";
-        if ("fr".equals(lang)) return "FR";
-        if ("es".equals(lang)) return "ES";
-        if ("it".equals(lang)) return "IT";
-        if ("pt".equals(lang)) return "PT";
-        if ("ru".equals(lang)) return "RU";
-        if ("ar".equals(lang)) return "SA";
-        return "US";
+        return I18n.LANG_RU.equals(I18n.getLang(c)) ? "RU" : "US";
     }
 
     public static String getCountryDisplayName(Context c, String code) {
@@ -329,9 +330,9 @@ public final class HomeDashboard {
     public static void fetchLatestReleases(final Context c, final boolean force, final ReleasesCallback cb) {
         final SharedPreferences sp = prefs(c);
         final String sig = getReleasesCacheSignature(c);
-        long now = System.currentTimeMillis();
         long lastTs = sp.getLong(KEY_RELEASES_CACHE_TS, 0L);
-        if (!force && sig.equals(sp.getString(KEY_RELEASES_CACHE_SIG, "")) && (now - lastTs) < 60 * 60_000L) {
+        if (!force && sig.equals(sp.getString(KEY_RELEASES_CACHE_SIG, ""))
+                && System.currentTimeMillis() - lastTs < 60 * 60_000L) {
             List<Suggestions.Item> cached = getCachedReleases(c);
             if (!cached.isEmpty()) {
                 if (cb != null) cb.onResult(cached);
@@ -339,41 +340,20 @@ public final class HomeDashboard {
             }
         }
         final List<String> countries = getEffectiveReleasesCountries(c);
-        EXEC.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    final List<Suggestions.Item> fetched = Suggestions.fetchReleasesForCountries(c, countries);
-                    if (fetched != null && !fetched.isEmpty()) {
-                        JSONArray arr = new JSONArray();
-                        for (Suggestions.Item it : fetched) {
-                            arr.put(it.toJson());
-                        }
-                        sp.edit()
-                                .putString(KEY_RELEASES_CACHE_JSON, arr.toString())
-                                .putString(KEY_RELEASES_CACHE_SIG, sig)
-                                .putLong(KEY_RELEASES_CACHE_TS, System.currentTimeMillis())
-                                .apply();
-                        if (cb != null) {
-                            MAIN.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    cb.onResult(fetched);
-                                }
-                            });
-                        }
-                        return;
-                    }
-                } catch (Throwable ignored) {}
-                final List<Suggestions.Item> fallback = getCachedReleases(c);
-                if (cb != null) {
-                    MAIN.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            cb.onResult(fallback);
-                        }
-                    });
-                }
+        RELEASE_REQUESTS.request(sig, force, () -> {
+            List<Suggestions.Item> fetched = Suggestions.fetchReleasesForCountries(c, countries);
+            if (fetched == null || fetched.isEmpty()) return null;
+            JSONArray arr = new JSONArray();
+            for (Suggestions.Item item : fetched) arr.put(item.toJson());
+            if (sig.equals(getReleasesCacheSignature(c))) {
+                sp.edit().putString(KEY_RELEASES_CACHE_JSON, arr.toString())
+                        .putString(KEY_RELEASES_CACHE_SIG, sig)
+                        .putLong(KEY_RELEASES_CACHE_TS, System.currentTimeMillis()).apply();
+            }
+            return fetched;
+        }, fresh -> {
+            if (cb != null && sig.equals(getReleasesCacheSignature(c))) {
+                cb.onResult(fresh != null ? fresh : getCachedReleases(c));
             }
         });
     }
@@ -441,80 +421,58 @@ public final class HomeDashboard {
         return fb;
     }
 
+    private static String prayerRequestKey(Context c) {
+        Calendar now = Calendar.getInstance();
+        Weather.Data weather = Weather.cached(c);
+        SharedPreferences wp = c.getSharedPreferences("weather_store", Context.MODE_PRIVATE);
+        return now.get(Calendar.YEAR) + ":" + now.get(Calendar.DAY_OF_YEAR) + ":" + getPrayerMethod(c)
+                + ":" + (weather == null ? "" : weather.place)
+                + ":" + wp.getFloat("lat", Float.NaN) + ":" + wp.getFloat("lon", Float.NaN);
+    }
+
     public static void fetchPrayerTimes(final Context c, final boolean force, final PrayerCallback cb) {
         final SharedPreferences sp = prefs(c);
-        final int todayKey = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-                + Calendar.getInstance().get(Calendar.YEAR) * 1000;
-        Weather.Data w = Weather.cached(c);
-        final String curCity = (w != null && w.place != null) ? w.place : "";
-        if (!force && sp.getInt(KEY_PRAYER_CACHE_DAY, -1) == todayKey) {
-            String cachedJson = sp.getString(KEY_PRAYER_CACHE_JSON, null);
-            String cachedCity = sp.getString(KEY_PRAYER_CACHE_CITY, "");
-            if (cachedJson != null && (curCity.isEmpty() || curCity.equalsIgnoreCase(cachedCity))) {
-                PrayerData d = parsePrayerJson(cachedJson, cachedCity);
-                if (d != null) {
-                    if (cb != null) cb.onResult(d);
-                    return;
-                }
+        final String sig = prayerRequestKey(c);
+        final int method = getPrayerMethod(c);
+        Calendar today = Calendar.getInstance();
+        final int todayKey = today.get(Calendar.DAY_OF_YEAR) + today.get(Calendar.YEAR) * 1000;
+        if (!force && sig.equals(sp.getString("prayer_cache_sig", ""))) {
+            String raw = sp.getString(KEY_PRAYER_CACHE_JSON, null);
+            PrayerData cached = raw == null ? null : parsePrayerJson(raw, sp.getString(KEY_PRAYER_CACHE_CITY, ""));
+            if (cached != null) {
+                if (cb != null) cb.onResult(cached);
+                return;
             }
         }
-
-        EXEC.execute(new Runnable() {
-            @Override
-            public void run() {
+        PRAYER_REQUESTS.request(sig, force, () -> {
+            SharedPreferences wp = c.getSharedPreferences("weather_store", Context.MODE_PRIVATE);
+            float lat = wp.getFloat("lat", Float.NaN), lon = wp.getFloat("lon", Float.NaN);
+            String city = wp.getString("city", "");
+            if (Float.isNaN(lat) || Float.isNaN(lon)) {
                 try {
-                    SharedPreferences wp = c.getSharedPreferences("weather_store", Context.MODE_PRIVATE);
-                    float lat = wp.getFloat("lat", Float.NaN);
-                    float lon = wp.getFloat("lon", Float.NaN);
-                    String city = wp.getString("city", "");
-                    if (Float.isNaN(lat) || Float.isNaN(lon)) {
-                        try {
-                            String geoRaw = httpGet("https://ipwho.is/");
-                            JSONObject g = new JSONObject(geoRaw);
-                            if (g.optBoolean("success", true)) {
-                                lat = (float) g.optDouble("latitude", 40.4093);
-                                lon = (float) g.optDouble("longitude", 49.8671);
-                                city = g.optString("city", "Baku");
-                            }
-                        } catch (Throwable ignored) {
-                            lat = 40.4093f;
-                            lon = 49.8671f;
-                            city = "Baku";
-                        }
+                    JSONObject geo = new JSONObject(httpGet("https://ipwho.is/"));
+                    if (geo.optBoolean("success", true)) {
+                        lat = (float) geo.optDouble("latitude", 40.4093);
+                        lon = (float) geo.optDouble("longitude", 49.8671);
+                        city = geo.optString("city", "Baku");
                     }
-                    int method = getPrayerMethod(c);
-                    long ts = System.currentTimeMillis() / 1000L;
-                    String url = String.format(Locale.US,
-                            "https://api.aladhan.com/v1/timings/%d?latitude=%.4f&longitude=%.4f&method=%d",
-                            ts, lat, lon, method);
-                    String resp = httpGet(url);
-                    final PrayerData parsed = parsePrayerJson(resp, city);
-                    if (parsed != null) {
-                        sp.edit()
-                                .putString(KEY_PRAYER_CACHE_JSON, resp)
-                                .putInt(KEY_PRAYER_CACHE_DAY, todayKey)
-                                .putString(KEY_PRAYER_CACHE_CITY, city)
-                                .apply();
-                        if (cb != null) {
-                            MAIN.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    cb.onResult(parsed);
-                                }
-                            });
-                        }
-                        return;
-                    }
-                } catch (Throwable ignored) {}
-                final PrayerData fallback = getCachedOrFallbackPrayer(c);
-                if (cb != null) {
-                    MAIN.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            cb.onResult(fallback);
-                        }
-                    });
+                } catch (Exception ignored) {
+                    lat = 40.4093f; lon = 49.8671f; city = "Baku";
                 }
+            }
+            String url = String.format(Locale.US,
+                    "https://api.aladhan.com/v1/timings/%d?latitude=%.4f&longitude=%.4f&method=%d",
+                    System.currentTimeMillis() / 1000L, lat, lon, method);
+            String raw = httpGet(url);
+            PrayerData parsed = parsePrayerJson(raw, city);
+            if (parsed != null && sig.equals(prayerRequestKey(c))) {
+                sp.edit().putString(KEY_PRAYER_CACHE_JSON, raw).putInt(KEY_PRAYER_CACHE_DAY, todayKey)
+                        .putString(KEY_PRAYER_CACHE_CITY, city).putString("prayer_cache_sig", sig).apply();
+            }
+            return parsed;
+        }, fresh -> {
+            if (cb != null && sig.equals(prayerRequestKey(c))) {
+                cb.onResult(fresh != null ? fresh : getCachedOrFallbackPrayer(c));
             }
         });
     }
@@ -661,6 +619,7 @@ public final class HomeDashboard {
     }
 
     public static void setSelectedLeague(Context c, String code) {
+        sMemMatches = null;
         prefs(c).edit()
                 .putString(KEY_FOOTBALL_LEAGUE, code)
                 .putLong(KEY_FOOTBALL_CACHE_TS, 0L)
@@ -671,83 +630,79 @@ public final class HomeDashboard {
         void onResult(List<MatchItem> matches);
     }
 
-    private static List<MatchItem> sMemMatches = new ArrayList<MatchItem>();
+    /** Publish the signature and its result together, including successful empty scoreboards. */
+    private static final class FootballSnapshot {
+        final String key;
+        final List<MatchItem> matches;
+        final long fetchedAt;
+        FootballSnapshot(String key, List<MatchItem> matches, long fetchedAt) {
+            this.key = key; this.matches = new ArrayList<>(matches); this.fetchedAt = fetchedAt;
+        }
+    }
+    private static volatile FootballSnapshot sMemMatches;
+
+    private static String footballRequestKey(Context c) {
+        return getSelectedLeague(c) + ":" + I18n.getLang(c) + ":"
+                + TextUtils.join(",", new java.util.TreeSet<>(getFavoriteTeams(c)));
+    }
 
     public static List<MatchItem> getCachedMatches(Context c) {
-        if (!sMemMatches.isEmpty()) return new ArrayList<MatchItem>(sMemMatches);
-        String raw = prefs(c).getString(KEY_FOOTBALL_CACHE_JSON, null);
-        if (raw != null) {
-            List<MatchItem> parsed = parseEspnEvents(c, raw, "");
-            if (!parsed.isEmpty()) {
-                sMemMatches = parsed;
-                return parsed;
-            }
-        }
-        return Collections.emptyList();
+        String sig = footballRequestKey(c);
+        FootballSnapshot snapshot = sMemMatches;
+        if (snapshot != null && sig.equals(snapshot.key)) return new ArrayList<>(snapshot.matches);
+        SharedPreferences sp = prefs(c);
+        if (!sig.equals(sp.getString("football_cache_sig", ""))) return Collections.emptyList();
+        String raw = sp.getString(KEY_FOOTBALL_CACHE_JSON, null);
+        if (raw == null) return Collections.emptyList();
+        try {
+            List<MatchItem> cached = parseEspnEvents(c, raw, getSelectedLeague(c));
+            sortMatches(c, cached);
+            return cached;
+        } catch (Exception ignored) { return Collections.emptyList(); }
     }
 
     public static void fetchFootballMatches(final Context c, final boolean force, final FootballCallback cb) {
         final SharedPreferences sp = prefs(c);
-        long now = System.currentTimeMillis();
-        long lastTs = sp.getLong(KEY_FOOTBALL_CACHE_TS, 0L);
-        if (!force && !sMemMatches.isEmpty() && (now - lastTs < 120_000L)) {
-            if (cb != null) cb.onResult(new ArrayList<MatchItem>(sMemMatches));
+        final String sig = footballRequestKey(c);
+        final String league = getSelectedLeague(c);
+        FootballSnapshot snapshot = sMemMatches;
+        if (!force && snapshot != null && sig.equals(snapshot.key)
+                && System.currentTimeMillis() - snapshot.fetchedAt < 120_000L) {
+            if (cb != null) cb.onResult(new ArrayList<>(snapshot.matches));
             return;
         }
-        EXEC.execute(new Runnable() {
-            @Override
-            public void run() {
-                List<MatchItem> all = new ArrayList<MatchItem>();
-                String league = getSelectedLeague(c);
+        FOOTBALL_REQUESTS.request(sig, force, () -> {
+            List<MatchItem> all = new ArrayList<>();
+            String firstRaw = null;
+            String[] codes = "all".equals(league)
+                    ? new String[]{"uefa.champions", "eng.1", "esp.1", "tur.1", "ita.1", "ger.1"}
+                    : new String[]{league};
+            for (String code : codes) {
                 try {
-                    if ("all".equals(league)) {
-                        String[] codes = { "uefa.champions", "eng.1", "esp.1", "tur.1", "ita.1", "ger.1" };
-                        String firstRaw = null;
-                        for (String code : codes) {
-                            try {
-                                String url = "https://site.api.espn.com/apis/site/v2/sports/soccer/" + code + "/scoreboard";
-                                String json = httpGet(url);
-                                if (firstRaw == null) firstRaw = json;
-                                List<MatchItem> sub = parseEspnEvents(c, json, code);
-                                all.addAll(sub);
-                            } catch (Throwable ignored) {}
-                        }
-                        if (all.isEmpty()) {
-                            String url = "https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard";
-                            String json = httpGet(url);
-                            all.addAll(parseEspnEvents(c, json, ""));
-                            firstRaw = json;
-                        }
-                        if (firstRaw != null) {
-                            sp.edit()
-                                    .putString(KEY_FOOTBALL_CACHE_JSON, firstRaw)
-                                    .putLong(KEY_FOOTBALL_CACHE_TS, System.currentTimeMillis())
-                                    .apply();
-                        }
-                    } else {
-                        String url = "https://site.api.espn.com/apis/site/v2/sports/soccer/" + league + "/scoreboard";
-                        String json = httpGet(url);
-                        all.addAll(parseEspnEvents(c, json, league));
-                        sp.edit()
-                                .putString(KEY_FOOTBALL_CACHE_JSON, json)
-                                .putLong(KEY_FOOTBALL_CACHE_TS, System.currentTimeMillis())
-                                .apply();
-                    }
-                } catch (Throwable ignored) {}
-
-                sortMatches(c, all);
-                if (!all.isEmpty()) {
-                    sMemMatches = all;
-                }
-                final List<MatchItem> result = !all.isEmpty() ? all : getCachedMatches(c);
-                if (cb != null) {
-                    MAIN.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            cb.onResult(result);
-                        }
-                    });
-                }
+                    String raw = httpGet("https://site.api.espn.com/apis/site/v2/sports/soccer/" + code + "/scoreboard");
+                    if (firstRaw == null) firstRaw = raw;
+                    all.addAll(parseEspnEvents(c, raw, code));
+                } catch (Exception ignored) { }
+            }
+            if (all.isEmpty() && "all".equals(league)) {
+                try {
+                    String raw = httpGet("https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard");
+                    all.addAll(parseEspnEvents(c, raw, ""));
+                    if (firstRaw == null) firstRaw = raw;
+                } catch (Exception ignored) { }
+            }
+            if (firstRaw == null) return null;
+            sortMatches(c, all);
+            if (sig.equals(footballRequestKey(c))) {
+                sMemMatches = new FootballSnapshot(sig, all, System.currentTimeMillis());
+                sp.edit().putString(KEY_FOOTBALL_CACHE_JSON, firstRaw)
+                        .putString("football_cache_sig", sig)
+                        .putLong(KEY_FOOTBALL_CACHE_TS, System.currentTimeMillis()).apply();
+            }
+            return all;
+        }, fresh -> {
+            if (cb != null && sig.equals(footballRequestKey(c))) {
+                cb.onResult(fresh != null ? fresh : getCachedMatches(c));
             }
         });
     }
@@ -1388,7 +1343,7 @@ public final class HomeDashboard {
 
                 final String imgUrl = it.backdrop;
                 if (imgUrl != null && !imgUrl.isEmpty()) {
-                    EXEC.execute(new Runnable() {
+                    try { EXEC.execute(new Runnable() {
                         @Override
                         public void run() {
                             final Bitmap bmp = Suggestions.image(host, imgUrl, "w342", dp(host, 140));
@@ -1401,7 +1356,9 @@ public final class HomeDashboard {
                                 });
                             }
                         }
-                    });
+                    }); } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                        // Keep the placeholder; a later bind can retry.
+                    }
                 }
             }
         };

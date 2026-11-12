@@ -38,7 +38,8 @@ public final class Ui {
         return Math.round(units * unit(c));
     }
 
-    private static final java.util.Map<String, android.graphics.Typeface> FONTS = new java.util.HashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, android.graphics.Typeface> FONTS =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Inter (OFL, bundled): the closest open font to Apple's SF. "display" is Inter Display Bold for
@@ -61,7 +62,9 @@ public final class Ui {
                     t = android.graphics.Typeface.DEFAULT;
                 }
             }
-            FONTS.put(weight, t);
+            // Asset I/O stays outside a global lock shared with UI font lookups.
+            android.graphics.Typeface existing = FONTS.putIfAbsent(weight, t);
+            if (existing != null) t = existing;
         }
         return t;
     }
