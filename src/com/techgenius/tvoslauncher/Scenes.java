@@ -1276,6 +1276,8 @@ public final class Scenes {
 
         private void prefetchNextScene() {
             if (!running || classicClockOnlyMode || activeIds.size() < 2) return;
+            // A late fade completion must not replace the next selected scene's preparation.
+            if (inFlightSignature != null || !currentId.equals(displayedId)) return;
             String next = activeIds.get((activeIdx + 1) % activeIds.size());
             // Dynamic sources advance only at rotation time, not while prefetching.
             if (FOLDER_SHUFFLE_ID.equals(next) || LOCK_FOLDER_SHUFFLE_ID.equals(next)

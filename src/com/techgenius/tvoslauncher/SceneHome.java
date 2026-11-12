@@ -1469,7 +1469,8 @@ final class SceneHome {
     }
 
     void rebuildDock() {
-        if (dockBox == null) return;
+        // An empty startup shell must not clamp or persist the restored app index.
+        if (dockBox == null || !host.catalogReady) return;
         int savedFocusIdx = focusedDockIdx;
         stopDockWiggle();
         dockBox.removeAllViews();

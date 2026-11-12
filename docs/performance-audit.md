@@ -158,8 +158,43 @@ java -cp "build/request-probe:build/classes:$SDK/platforms/android-34/android.ja
 
 - APK 2.1.5-ru.3, versionCode 18: сборка SDK 34, подпись v2/v3 и zipalign.
 - 1120 ключей локализации и 38 проверок поведения без регрессий.
-- 48 проверок LRU, объединения запросов, ошибок/повторов, отмены и замены подготовки, политики опроса.
+- 55 проверок LRU, объединения запросов, ошибок/повторов, отмены и замены подготовки, политики опроса.
 - Интеграционный стенд: 20 вызовов → один запрос транспорта и 20 ответов.
+
+Проверки поведения после сборки (JDK 17 и Android SDK):
+
+```sh
+python3 tools/localization_keys.py --keys > build/localization-keys.txt
+mkdir -p build/checks
+javac -encoding UTF-8 --release 11 -cp "build/classes:$SDK/platforms/android-34/android.jar" \
+  -d build/checks tests/LauncherChecks.java tests/PerformanceChecks.java
+java -cp "build/checks:build/classes:$SDK/platforms/android-34/android.jar" \
+  com.techgenius.tvoslauncher.LauncherChecks build/localization-keys.txt
+java -cp "build/checks:build/classes" com.techgenius.tvoslauncher.PerformanceChecks
+```
+
+## Standards
+
+Повторное ревью Matt Pocock `code-review`, база `92fbac4`, исправления `4f4b28a`.
+Документированных нарушений CONTRIBUTING.md не найдено. Единственное замечание по эвристике
+именования: литералы 2/3 в VolumePollPolicy не объясняли режимы. Они заменены существующими
+константами ButtonMapper. Проверки физического устройства отложены пользователем.
+
+## Spec
+
+Проверка относительно четырёх исходных находок обнаружила три пограничных регрессии
+асинхронной подготовки; все исправлены после ревью:
+
+- Поздний ответ каталога мог вызвать applyLookMode после onPause и снова запустить таймеры.
+  Теперь видимая работа запускается только при resumed; данные можно опубликовать в паузе.
+- Пустой стартовый dock из одной шестерёнки сбрасывал сохранённый индекс фокуса в ноль.
+  Теперь dock строится после готовности каталога, сохраняя индекс до публикации.
+- Завершение предыдущего перехода могло запустить prefetch и отменить уже выбранную сцену.
+  Предзагрузка запрещена, пока выбранная сцена ещё готовится или не показана.
+
+Итог ревью: Standards — 1 замечание по эвристике, устранено; Spec — 3 замечания,
+устранены. Повторная проверка этих исправлений не нашла новых конкретных регрессий.
+Непроверенными остаются сценарии на физической приставке.
 
 ## Что уже ограничивает лишнюю работу
 

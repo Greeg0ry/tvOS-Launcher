@@ -61,6 +61,12 @@ public final class PerformanceChecks {
                 ui, clock::get, 10);
         rejected.request("rejected", false, () -> "never", value -> equal(true, value == null));
         ui.runAll();
+        requests.request("timeout", false, () -> null, null); work.runAll();
+        requests.request("timeout", false, () -> "too early", null);
+        equal(0, work.tasks.size());
+        clock.addAndGet(30_001);
+        requests.request("timeout", false, () -> "retry", value -> equal("retry", value));
+        equal(1, work.tasks.size()); work.runAll(); ui.runAll();
 
         Queue background = new Queue(), delivery = new Queue();
         List<String> accepted = new ArrayList<>(), discarded = new ArrayList<>();
@@ -74,6 +80,14 @@ public final class PerformanceChecks {
         latest.submit(() -> "selected", accepted::add);
         equal(1, background.tasks.size()); background.runAll(); delivery.runAll();
         equal(List.of("new", "selected"), accepted);
+        latest.submit(() -> "completed before cancel", accepted::add); background.runAll();
+        latest.cancel(); delivery.runAll();
+        equal(List.of("new", "selected"), accepted);
+        equal(List.of("old", "completed before cancel"), discarded);
+        latest.submit(() -> { throw new IllegalStateException("decode failed"); }, value -> equal(true, value == null));
+        background.runAll(); delivery.runAll();
+        latest.submit(() -> "recovered", accepted::add); background.runAll(); delivery.runAll();
+        equal(List.of("new", "selected", "recovered"), accepted);
 
         equal(0L, VolumePollPolicy.delayMillis(true, 1, false));
         equal(0L, VolumePollPolicy.delayMillis(true, 3, false));

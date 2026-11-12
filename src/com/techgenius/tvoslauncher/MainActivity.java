@@ -3702,6 +3702,7 @@ public class MainActivity extends Activity {
         List<Inputs.Input> inputs;
     }
     private long catalogGeneration;
+    boolean catalogReady;
 
     private void applyAppCatalog(AppCatalog catalog) {
         all.clear(); all.putAll(catalog.all);
@@ -3709,6 +3710,7 @@ public class MainActivity extends Activity {
         otherApps.clear(); otherApps.addAll(catalog.other);
         hiddenApps.clear(); hiddenApps.addAll(catalog.hidden);
         inputs = catalog.inputs;
+        catalogReady = true;
     }
 
     /** Publish the list after the first frame; workers never mutate UI-owned collections. */
@@ -3721,8 +3723,7 @@ public class MainActivity extends Activity {
                 if (isDestroyed() || generation != catalogGeneration || prefs != home) return;
                 applyAppCatalog(catalog);
                 buildGrid();
-                if (sceneHome != null) sceneHome.rebuildDock();
-                applyLookMode();
+                if (resumed) applyLookMode();
             });
         });
     }

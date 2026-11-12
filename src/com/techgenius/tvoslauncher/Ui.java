@@ -38,13 +38,14 @@ public final class Ui {
         return Math.round(units * unit(c));
     }
 
-    private static final java.util.Map<String, android.graphics.Typeface> FONTS = new java.util.HashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, android.graphics.Typeface> FONTS =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Inter (OFL, bundled): the closest open font to Apple's SF. "display" is Inter Display Bold for
      * large titles; "regular", "medium", "semibold" for UI and body text.
      */
-    public static synchronized android.graphics.Typeface font(Context c, String weight) {
+    public static android.graphics.Typeface font(Context c, String weight) {
         android.graphics.Typeface t = FONTS.get(weight);
         if (t == null) {
             String file = weight.equals("clock") ? "Antonio-Light"
@@ -61,7 +62,9 @@ public final class Ui {
                     t = android.graphics.Typeface.DEFAULT;
                 }
             }
-            FONTS.put(weight, t);
+            // Asset I/O stays outside a global lock shared with UI font lookups.
+            android.graphics.Typeface existing = FONTS.putIfAbsent(weight, t);
+            if (existing != null) t = existing;
         }
         return t;
     }
