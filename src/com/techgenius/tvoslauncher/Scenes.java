@@ -66,7 +66,6 @@ public final class Scenes {
     public static final class Spec {
         public final String id;
         public final String nameEn;
-        public final String nameTr;
         public final String bgAsset;
         public final String glassAsset;
         public final String fgAsset; // null for water (uses waterline reflection instead)
@@ -80,14 +79,13 @@ public final class Scenes {
         public final float dateLeftU;
         public final boolean darkDate;
 
-        Spec(String id, String nameEn, String nameTr,
+        Spec(String id, String nameEn,
              String bgAsset, String glassAsset, String fgAsset,
              boolean waterSplit, boolean leftAlign, boolean darkClock,
              float clockTopU, float clockSizeU, float clockLeftU,
              float dateTopU, float dateLeftU, boolean darkDate) {
             this.id = id;
             this.nameEn = nameEn;
-            this.nameTr = nameTr;
             this.bgAsset = bgAsset;
             this.glassAsset = glassAsset;
             this.fgAsset = fgAsset;
@@ -104,34 +102,34 @@ public final class Scenes {
 
         public String title(Context c) {
             if (nameEn.matches("Custom [0-9]+")) {
-                return I18n.format(c, "Custom {0}", "Özel {0}", nameEn.substring(7));
+                return I18n.format(c, "Custom {0}", nameEn.substring(7));
             }
-            return I18n.s(c, nameEn, nameTr);
+            return I18n.t(c, nameEn);
         }
     }
 
     public static final Spec[] ALL = {
-        new Spec("night", "Night", "Gece",
+        new Spec("night", "Night",
                 "backgrounds/scene-night.jpg", "backgrounds/scene-night-glass.jpg", "backgrounds/scene-night-fg.webp",
                 false, false, false,
                 62f, 178f, 0f,
                 42f, 0f, false),
-        new Spec("golden", "Golden hour", "Altın saat",
+        new Spec("golden", "Golden hour",
                 "backgrounds/scene-golden.jpg", "backgrounds/scene-golden-glass.jpg", "backgrounds/scene-golden-fg.webp",
                 false, false, false,
                 76f, 195f, 0f,
                 53f, 0f, false),
-        new Spec("water", "Waterline", "Su çizgisi",
+        new Spec("water", "Waterline",
                 "backgrounds/scene-water.jpg", "backgrounds/scene-water-glass.jpg", null,
                 true, false, false,
                 134f, 210f, 0f,
                 108f, 0f, false),
-        new Spec("fog", "Fog", "Sis",
+        new Spec("fog", "Fog",
                 "backgrounds/scene-fog.jpg", "backgrounds/scene-fog-glass.jpg", "backgrounds/scene-fog-fg.webp",
                 false, true, true,
                 86f, 235f, 48f,
                 58f, 52f, true),
-        new Spec("dawn", "Rainforest dawn", "Yağmur ormanı şafağı",
+        new Spec("dawn", "Rainforest dawn",
                 "backgrounds/scene-dawn.jpg", "backgrounds/scene-dawn-glass.jpg", "backgrounds/scene-dawn-fg.webp",
                 false, false, false,
                 115f, 200f, 0f,
@@ -139,7 +137,7 @@ public final class Scenes {
     };
 
     public static final Spec CUSTOM_SPEC = new Spec(
-            CUSTOM_ID, "Custom", "Özel",
+            CUSTOM_ID, "Custom",
             null, null, null,
             false, false, false,
             68f, 190f, 48f,
@@ -147,46 +145,46 @@ public final class Scenes {
 
     public static final Spec[] CUSTOM_SPECS = {
         CUSTOM_SPEC,
-        new Spec("custom_2", "Custom 2", "Özel 2", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false),
-        new Spec("custom_3", "Custom 3", "Özel 3", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false),
-        new Spec("custom_4", "Custom 4", "Özel 4", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false),
-        new Spec("custom_5", "Custom 5", "Özel 5", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false)
+        new Spec("custom_2", "Custom 2", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false),
+        new Spec("custom_3", "Custom 3", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false),
+        new Spec("custom_4", "Custom 4", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false),
+        new Spec("custom_5", "Custom 5", null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false)
     };
 
     public static final Spec FOLDER_SHUFFLE_SPEC = new Spec(
-            FOLDER_SHUFFLE_ID, "Folder Shuffle", "Klasör Karıştırma",
+            FOLDER_SHUFFLE_ID, "Folder Shuffle",
             null, null, null,
             false, false, false,
             68f, 190f, 48f,
             45f, 52f, false);
 
     public static final Spec REDDIT_WALLPAPER_SPEC = new Spec(
-            REDDIT_WALLPAPER_ID, "Reddit Wallpapers", "Reddit Duvar Kağıtları",
+            REDDIT_WALLPAPER_ID, "Reddit Wallpapers",
             null, null, null,
             false, false, false,
             68f, 190f, 48f,
             45f, 52f, false);
 
     public static final Spec LOCK_CUSTOM_SPEC = new Spec(
-            LOCK_CUSTOM_ID, "Custom Lock Image", "Özel Kilit Görseli",
+            LOCK_CUSTOM_ID, "Custom Lock Image",
             null, null, null,
             false, false, false,
             68f, 190f, 48f,
             45f, 52f, false);
 
     public static final Spec LOCK_FOLDER_SHUFFLE_SPEC = new Spec(
-            LOCK_FOLDER_SHUFFLE_ID, "Folder Shuffle", "Klasör Karıştırma",
+            LOCK_FOLDER_SHUFFLE_ID, "Folder Shuffle",
             null, null, null,
             false, false, false,
             68f, 190f, 48f,
             45f, 52f, false);
 
     public static final String[][] CLASSIC_GRADIENTS = {
-        {"grad:aurora", "Aurora", "Kuzey Işığı"},
-        {"grad:midnight", "Midnight", "Gece Yarısı"},
-        {"grad:ocean", "Ocean", "Okyanus"},
-        {"grad:sunset", "Sunset", "Gün Batımı"},
-        {"grad:graphite", "Graphite", "Grafit"}
+        {"grad:aurora", "Aurora"},
+        {"grad:midnight", "Midnight"},
+        {"grad:ocean", "Ocean"},
+        {"grad:sunset", "Sunset"},
+        {"grad:graphite", "Graphite"}
     };
 
     public static String customId(int slot) {
@@ -269,11 +267,11 @@ public final class Scenes {
     }
 
     public static final String[][] CLASSIC_PHOTOS = {
-        {"tessellated-pavement.jpg", "Tessellated Pavement", "Mozaik Kıyı"},
-        {"grose-valley.jpg", "Grose Valley", "Grose Vadisi"},
-        {"albury-storm.jpg", "Albury Storm", "Albury Fırtınası"},
-        {"aresquiers-beach.jpg", "Aresquiers Beach", "Aresquiers Plajı"},
-        {"vang-vieng-sunset.jpg", "Vang Vieng Sunset", "Vang Vieng Gün Batımı"}
+        {"tessellated-pavement.jpg", "Tessellated Pavement"},
+        {"grose-valley.jpg", "Grose Valley"},
+        {"albury-storm.jpg", "Albury Storm"},
+        {"aresquiers-beach.jpg", "Aresquiers Beach"},
+        {"vang-vieng-sunset.jpg", "Vang Vieng Sunset"}
     };
 
     private Scenes() { }
@@ -283,7 +281,7 @@ public final class Scenes {
         int cSlot = customSlotFromId(id);
         if (cSlot > 0) {
             if (cSlot <= CUSTOM_SPECS.length) return CUSTOM_SPECS[cSlot - 1];
-            return new Spec(customId(cSlot), "Custom " + cSlot, "Özel " + cSlot,
+            return new Spec(customId(cSlot), "Custom " + cSlot,
                     null, null, null, false, false, false, 68f, 190f, 48f, 45f, 52f, false);
         }
         if (FOLDER_SHUFFLE_ID.equals(id)) return FOLDER_SHUFFLE_SPEC;
@@ -294,7 +292,7 @@ public final class Scenes {
             String file = id.substring("photo:".length());
             for (String[] row : CLASSIC_PHOTOS) {
                 if (row[0].equals(file)) {
-                    return new Spec(id, row[1], row[2], "backgrounds/" + file, null, null,
+                    return new Spec(id, row[1], "backgrounds/" + file, null, null,
                             false, false, false, 68f, 190f, 48f, 45f, 52f, false);
                 }
             }
@@ -302,7 +300,7 @@ public final class Scenes {
         if (id.startsWith("grad:")) {
             for (String[] row : CLASSIC_GRADIENTS) {
                 if (row[0].equals(id)) {
-                    return new Spec(id, row[1], row[2], null, null, null,
+                    return new Spec(id, row[1], null, null, null,
                             false, false, false, 68f, 190f, 48f, 45f, 52f, false);
                 }
             }
@@ -370,7 +368,7 @@ public final class Scenes {
         int pct = getDockScalePercent(c);
         int diff = pct - 100;
         if (diff == 0) {
-            return "100% (" + I18n.s(c, "Default", "Varsayılan") + ")";
+            return "100% (" + I18n.t(c, "Default") + ")";
         } else if (diff > 0) {
             return pct + "% (+" + diff + "%)";
         } else {
@@ -768,9 +766,9 @@ public final class Scenes {
 
     public static String lockClockPosLabel(Context c) {
         String pos = getLockClockPos(c);
-        if (CLOCK_POS_LEFT.equals(pos)) return I18n.s(c, "Left", "Sol");
-        if (CLOCK_POS_RIGHT.equals(pos)) return I18n.s(c, "Right", "Sağ");
-        return I18n.s(c, "Center", "Orta");
+        if (CLOCK_POS_LEFT.equals(pos)) return I18n.t(c, "Left");
+        if (CLOCK_POS_RIGHT.equals(pos)) return I18n.t(c, "Right");
+        return I18n.t(c, "Center");
     }
 
     public static int getLockIdleMinutes(Context c) {
@@ -796,8 +794,8 @@ public final class Scenes {
 
     public static String lockIdleLabel(Context c) {
         int m = getLockIdleMinutes(c);
-        if (m <= 0) return I18n.s(c, "Off", "Kapalı");
-        return m + " " + I18n.s(c, "min", "dk");
+        if (m <= 0) return I18n.t(c, "Off");
+        return m + " " + I18n.t(c, "min");
     }
 
     public static int getStaySeconds(Context c) {
@@ -866,9 +864,9 @@ public final class Scenes {
 
     public static String clockStyleLabel(Context c) {
         String st = getClockStyle(c);
-        if (CLOCK_STYLE_ROUNDED.equals(st)) return I18n.s(c, "iPhone Rounded", "iPhone Yuvarlak");
-        if (CLOCK_STYLE_TALL.equals(st)) return I18n.s(c, "Tall Glass", "Uzun Cam");
-        return I18n.s(c, "iPhone Duo", "iPhone Duo");
+        if (CLOCK_STYLE_ROUNDED.equals(st)) return I18n.t(c, "iPhone Rounded");
+        if (CLOCK_STYLE_TALL.equals(st)) return I18n.t(c, "Tall Glass");
+        return I18n.t(c, "iPhone Duo");
     }
 
     private static InputStream openAssetStream(Context c, String assetPath) throws java.io.IOException {
@@ -1863,13 +1861,13 @@ public final class Scenes {
             int hr = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
             String greet;
             if (hr >= 5 && hr < 12) {
-                greet = I18n.s(c, "Good morning", "Günaydın");
+                greet = I18n.t(c, "Good morning");
             } else if (hr >= 12 && hr < 18) {
-                greet = I18n.s(c, "Good afternoon", "İyi günler");
+                greet = I18n.t(c, "Good afternoon");
             } else if (hr >= 18 && hr < 22) {
-                greet = I18n.s(c, "Good evening", "İyi akşamlar");
+                greet = I18n.t(c, "Good evening");
             } else {
-                greet = I18n.s(c, "Good night", "İyi geceler");
+                greet = I18n.t(c, "Good night");
             }
             try {
                 Profiles.Profile cur = Profiles.current(c);

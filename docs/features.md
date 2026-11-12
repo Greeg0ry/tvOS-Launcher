@@ -87,13 +87,13 @@ remote, the Search key on remotes that have one, or just start typing on a keybo
 Assistant/mic button on most Android TV remotes is taken by Google Assistant before any app sees
 it, so it can't open tvOS Launcher's Search.)
 
-- **Keyboard**: a–z, space, delete, **123** (digits and punctuation), **अआ** (Hindi letters) and
+- **Keyboard**: Russian and English letters, space, delete, **123** (digits and punctuation), an alphabet switch and
   clear. A USB/Bluetooth keyboard and the remote's number keys type too.
 - **Dictation**: the **mic** beside the search field (Up from the keyboard), or the remote's
   search/mic button on Home or in Search. Where the TV has Google's voice service, the words appear
   in the field as you speak and results follow; the microphone is asked for on screen the first
   time. Esc on a keyboard, or Back, closes Search. Without that permission or service, the TV's own voice prompt (Google's) listens instead.
-  English and Hindi (Indian English, with Hindi as a second language).
+  Russian or English according to the interface language, with the other language as an additional recognition language.
 - **Before typing**: your recent searches (per profile) and what's trending in the carousel.
 - **Apps & Settings** (instant, no internet): installed apps including hidden ones, TV inputs
   ("HDMI 2"), tvOS Launcher screens (Control Center, Weather, Switch Profile, Home Settings) and TV settings

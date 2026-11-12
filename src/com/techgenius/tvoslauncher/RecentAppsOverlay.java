@@ -460,7 +460,7 @@ public final class RecentAppsOverlay {
 
         // 2. Top-Left Title: "Recent Apps"
         TextView title = new TextView(c);
-        title.setText(I18n.s(c, "Recent Apps", "Son Uygulamalar"));
+        title.setText(I18n.t(c, "Recent Apps"));
         title.setTextColor(0xE6FFFFFF);
         title.setTypeface(Ui.font(c, "semibold"));
         Ui.textSize(title, 20f);
@@ -518,7 +518,7 @@ public final class RecentAppsOverlay {
 
         // 4. Empty Text ("No recent apps yet")
         TextView emptyView = new TextView(c);
-        emptyView.setText(I18n.s(c, "No recent apps yet", "Henüz son kullanılan uygulama yok"));
+        emptyView.setText(I18n.t(c, "No recent apps yet"));
         emptyView.setTextColor(0xB3FFFFFF);
         emptyView.setTypeface(Ui.font(c, "medium"));
         Ui.textSize(emptyView, 16f);
@@ -556,7 +556,7 @@ public final class RecentAppsOverlay {
 
         // 6. Bottom Hint ("Press ▲ on an app to close it")
         TextView hintView = new TextView(c);
-        hintView.setText(I18n.s(c, "Press ▲ on an app to close it", "Kapatmak için uygulamanın üzerinde ▲ tuşuna basın"));
+        hintView.setText(I18n.t(c, "Press ▲ on an app to close it"));
         hintView.setTextColor(0x99FFFFFF);
         hintView.setTypeface(Ui.font(c, "medium"));
         Ui.textSize(hintView, 13f);
@@ -742,7 +742,7 @@ public final class RecentAppsOverlay {
         btn.addView(circle, new LinearLayout.LayoutParams(circleSize, circleSize));
 
         TextView label = new TextView(c);
-        label.setText(I18n.s(c, "Close All", "Tümünü Kapat"));
+        label.setText(I18n.t(c, "Close All"));
         label.setTextColor(Color.WHITE);
         label.setTypeface(Ui.font(c, "semibold"));
         Ui.textSize(label, 14f);
@@ -1040,8 +1040,7 @@ public final class RecentAppsOverlay {
             double gb = 1073741824.0;
             String usedStr = String.format(Locale.US, "%.1f GB", usedBytes / gb);
             String totalStr = String.format(Locale.US, "%.1f GB", mi.totalMem / gb);
-            activeRamText.setText(I18n.format(c, "RAM {0} used of {1}",
-                    "RAM {1} içinde {0} kullanımda", usedStr, totalStr));
+            activeRamText.setText(I18n.format(c, "RAM {0} used of {1}", usedStr, totalStr));
             activeRamTrack.post(() -> {
                 if (activeRamTrack == null || activeRamFill == null) return;
                 int w = activeRamTrack.getWidth();

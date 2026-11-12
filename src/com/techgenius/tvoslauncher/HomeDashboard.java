@@ -90,25 +90,25 @@ public final class HomeDashboard {
     private static final String KEY_RELEASES_CACHE_TS = "releases_cache_ts";
 
     /**
-     * Supported countries for Latest Releases widget: { ISO-3166 alpha-2 code, Display Name, UI language code }.
+     * Supported countries for Latest Releases widget: { ISO-3166 alpha-2 code, Display Name }.
      */
     public static final String[][] RELEASES_COUNTRIES = {
-        {"TR", "Türkiye (Turkey)", "tr"},
-        {"AZ", "Azərbaycan (Azerbaijan)", "az"},
-        {"US", "United States", "en"},
-        {"GB", "United Kingdom", "en"},
-        {"DE", "Deutschland (Germany)", "de"},
-        {"FR", "France", "fr"},
-        {"ES", "España (Spain)", "es"},
-        {"IT", "Italia (Italy)", "it"},
-        {"PT", "Portugal", "pt"},
-        {"BR", "Brasil (Brazil)", "pt"},
-        {"RU", "Россия (Russia)", "ru"},
-        {"SA", "السعودية (Saudi Arabia)", "ar"},
-        {"EG", "مصر (Egypt)", "ar"},
-        {"IN", "India", "en"},
-        {"KR", "South Korea", "en"},
-        {"JP", "Japan", "en"}
+        {"TR", "Türkiye (Turkey)"},
+        {"AZ", "Azərbaycan (Azerbaijan)"},
+        {"US", "United States"},
+        {"GB", "United Kingdom"},
+        {"DE", "Deutschland (Germany)"},
+        {"FR", "France"},
+        {"ES", "España (Spain)"},
+        {"IT", "Italia (Italy)"},
+        {"PT", "Portugal"},
+        {"BR", "Brasil (Brazil)"},
+        {"RU", "Россия (Russia)"},
+        {"SA", "السعودية (Saudi Arabia)"},
+        {"EG", "مصر (Egypt)"},
+        {"IN", "India"},
+        {"KR", "South Korea"},
+        {"JP", "Japan"}
     };
 
     private static final ExecutorService EXEC = Executors.newCachedThreadPool();
@@ -184,17 +184,7 @@ public final class HomeDashboard {
     // =========================================================================
 
     public static String defaultCountryForUiLang(Context c) {
-        String lang = I18n.getLang(c);
-        if ("tr".equals(lang)) return "TR";
-        if ("az".equals(lang)) return "AZ";
-        if ("de".equals(lang)) return "DE";
-        if ("fr".equals(lang)) return "FR";
-        if ("es".equals(lang)) return "ES";
-        if ("it".equals(lang)) return "IT";
-        if ("pt".equals(lang)) return "PT";
-        if ("ru".equals(lang)) return "RU";
-        if ("ar".equals(lang)) return "SA";
-        return "US";
+        return I18n.LANG_RU.equals(I18n.getLang(c)) ? "RU" : "US";
     }
 
     public static String getCountryDisplayName(Context c, String code) {

@@ -19,6 +19,9 @@ public final class LauncherChecks {
     public static void main(String[] args) throws Exception {
         Field lang = I18n.class.getDeclaredField("cachedLang");
         lang.setAccessible(true);
+        equal(2, I18n.LANGUAGES.length);
+        equal(Set.of("en", "ru"), java.util.Arrays.stream(I18n.LANGUAGES)
+                .map(row -> row[0]).collect(java.util.stream.Collectors.toSet()));
         lang.set(null, "ru");
         equal("Слева", I18n.t(null, "Left"));
         equal("Слева", I18n.t(null, "align_left"));
@@ -28,11 +31,11 @@ public final class LauncherChecks {
         equal("Детский", I18n.profileName(null, "Kids"));
         equal("Person Smith", I18n.profileName(null, "Person Smith"));
         equal("Мой профиль", I18n.profileName(null, "Мой профиль"));
-        equal("Осталось 21 мин.", I18n.s(null, "21 min left", null));
-        equal("Размер панели: 125%.", I18n.format(null, "Dock size set to {0}%.", null, 125));
-        equal("Open $1\\{0} {1}", I18n.format(null, "Open {0} {1}", null, "$1\\{0}"));
-        equal("Сериал: {1}", I18n.format(null, "{0}: {1}", null, "Сериал"));
-        equal("Включено: 2 / найдено: 5 ›", I18n.format(null, "{0} active / {1} found ›", null, 2, 5));
+        equal("Осталось 21 мин.", I18n.t(null, "21 min left"));
+        equal("Размер панели: 125%.", I18n.format(null, "Dock size set to {0}%.", 125));
+        equal("Open $1\\{0} {1}", I18n.format(null, "Open {0} {1}", "$1\\{0}"));
+        equal("Сериал: {1}", I18n.format(null, "{0}: {1}", "Сериал"));
+        equal("Включено: 2 / найдено: 5 ›", I18n.format(null, "{0} active / {1} found ›", 2, 5));
 
         Set<String> unchanged = Set.of("", "Wi-Fi", "Bluetooth", "iPhone Duo", "iPhone Rounded");
         int checkedKeys = 0;
@@ -51,12 +54,23 @@ public final class LauncherChecks {
             checkedKeys++;
         }
 
-        lang.set(null, "tr");
-        equal("Sürüm 2.1", I18n.format(null, "Version {0}", "Sürüm {0}", "2.1"));
-        equal("2 / 1", I18n.format(null, "{0} / {1}", "{1} / {0}", 1, 2));
         lang.set(null, "en");
-        equal("Version 2.1", I18n.format(null, "Version {0}", "Sürüm {0}", "2.1"));
-        equal("Version 2.1", I18n.format(null, "Version {0}", null, "2.1"));
+        equal("Version 2.1", I18n.format(null, "Version {0}", "2.1"));
+        equal("1 / 2", I18n.format(null, "{0} / {1}", 1, 2));
+        equal(true, I18n.isSupportedLang("ru"));
+        equal(true, I18n.isSupportedLang("en"));
+        equal(false, I18n.isSupportedLang("tr"));
+        equal(false, I18n.isSupportedLang(null));
+        equal(true, I18n.isDefault24hForLang("ru"));
+        equal(false, I18n.isDefault24hForLang("en"));
+        equal(SearchPanel.RUSSIAN, SearchPanel.keyboardCharacters(true, 0));
+        equal(SearchPanel.LATIN, SearchPanel.keyboardCharacters(true, 2));
+        equal(SearchPanel.LATIN, SearchPanel.keyboardCharacters(false, 0));
+        equal(SearchPanel.RUSSIAN, SearchPanel.keyboardCharacters(false, 2));
+        equal(SearchPanel.DIGITS, SearchPanel.keyboardCharacters(true, 1));
+        equal("abc", SearchPanel.keyboardToggleLabel(true, 0));
+        equal("абв", SearchPanel.keyboardToggleLabel(true, 2));
+        equal("абв", SearchPanel.keyboardToggleLabel(false, 0));
 
         String pkg = "com.example.tv";
         equal(true, PackageCommandResult.succeeded("Package " + pkg + " new state: disabled-user\n", pkg, true));

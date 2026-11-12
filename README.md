@@ -1,6 +1,6 @@
 # tvOS Launcher RU
 
-Лаунчер для Android TV и ТВ-приставок с интерфейсом в стиле tvOS: приложения, часы, погода и управление с пульта. Русскоязычный форк [tvOS Launcher](https://github.com/techgenius1/tvOS-Launcher). Первая целевая приставка — **X4Q Pro, Android 11**; проверка на устройстве ещё предстоит.
+Лаунчер для Android TV и ТВ-приставок с интерфейсом в стиле tvOS: приложения, часы, погода и управление с пульта. Поддерживает русский и английский языки. Форк [tvOS Launcher](https://github.com/techgenius1/tvOS-Launcher). Первая целевая приставка — **X4Q Pro, Android 11**; проверка на устройстве ещё предстоит.
 
 ![Главный экран tvOS Launcher (скриншот оригинального проекта)](screenshots_en/Home.png)
 

@@ -13,11 +13,12 @@ source (Nayuki, MIT) under `src/io/nayuki/qrcodegen`.
 | Path | Responsibility |
 |---|---|
 | `MainActivity.java` | Home screen: grid/dock, focus & move, launch zoom, carousel (Continue Watching + news + recommendations), status row, Liquid Glass, Control Center (incl. Memory/Clean), profile switcher, idle mode, menus |
+| `I18n.java`, `RussianTranslations.java` | English/Russian UI, dates, templates and symbolic keys; one Russian dictionary |
 | `SetupActivity.java` | First-time setup pages (Apple-style, one question per page) |
 | `SettingsActivity.java` | All settings, tvOS list layout |
 | `Suggestions.java` | JustWatch / TMDB / Stremio (Cinemeta) recommendations: fetch, cache, artwork, deep links |
 | `Search.java` | Search data: JustWatch title search (every service in India) and Cinemeta, matching each service to its installed app, Open / Get, recent searches |
-| `SearchPanel.java` | The search screen: one-row keyboard (English, digits, Hindi, voice), Apps & Settings and Movies & TV rows, the How to Watch sheet |
+| `SearchPanel.java` | The search screen: one-row keyboard (Russian, English, digits, voice), Apps & Settings and Movies & TV rows, the How to Watch sheet |
 | `MediaWatchService.java` | Notification listener → media sessions → Continue Watching store; DND access |
 | `Profiles.java` | Profiles (max 3), unique emoji avatars, per-profile storage names |
 | `SleepReceiver.java` | Sleep via device admin (or PowerService); sleep timer alarm |

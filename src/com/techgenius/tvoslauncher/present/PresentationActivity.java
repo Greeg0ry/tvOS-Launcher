@@ -171,7 +171,7 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
             }
 
             @Override public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
-                if (r.isForMainFrame()) showError(I18n.format(PresentationActivity.this, "Webpage failed to load: {0}", null, e.getDescription()), current());
+                if (r.isForMainFrame()) showError(I18n.format(PresentationActivity.this, "Webpage failed to load: {0}", e.getDescription()), current());
             }
         });
         webView.setWebChromeClient(new WebChromeClient());
@@ -508,13 +508,13 @@ public class PresentationActivity extends Activity implements AdminServer.Gatewa
             mp.setOnErrorListener((p, what, extra) -> {
                 Model.Slide cur = current();
                 if (cur != null && Model.VIDEO.equals(cur.type) && mediaPlayer == p) {
-                    showError(I18n.format(PresentationActivity.this, "Video failed: {0}\nMedia error {1} ({2})", null, m.displayName, what, extra), cur);
+                    showError(I18n.format(PresentationActivity.this, "Video failed: {0}\nMedia error {1} ({2})", m.displayName, what, extra), cur);
                 }
                 return true;
             });
             mp.prepareAsync();
         } catch (Exception e) {
-            showError(I18n.format(PresentationActivity.this, "Video failed: {0}\n{1}", null, m.displayName, e.getMessage()), s);
+            showError(I18n.format(PresentationActivity.this, "Video failed: {0}\n{1}", m.displayName, e.getMessage()), s);
             return;
         }
         reveal(videoView);
